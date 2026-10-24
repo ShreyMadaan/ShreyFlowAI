@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -8,11 +7,13 @@ import {
 } from "lucide-react";
 
 import Board from "../features/board/Board";
-import { INITIAL_TASKS } from "../data/mockData";
 
-function Dashboard() {
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
-
+function Dashboard({
+  tasks,
+  setTasks,
+  onEditTask,
+  onDeleteTask,
+}) {
   const totalTasks = tasks.length;
 
   const inProgressTasks = tasks.filter(
@@ -49,7 +50,6 @@ function Dashboard() {
 
   return (
     <div className="mx-auto max-w-[1800px] space-y-8 p-4 sm:p-6 lg:p-8">
-      {/* Workspace heading */}
       <section>
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
           Workspace Overview
@@ -65,7 +65,6 @@ function Dashboard() {
         </p>
       </section>
 
-      {/* Statistics */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -93,7 +92,6 @@ function Dashboard() {
         })}
       </section>
 
-      {/* Kanban board */}
       <section className="rounded-2xl border border-app-border bg-surface p-4 sm:p-5">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -102,8 +100,7 @@ function Dashboard() {
             </h2>
 
             <p className="mt-1 text-xs text-muted">
-              Manage your tasks across five workflow
-              stages.
+              Manage tasks across five workflow stages.
             </p>
           </div>
 
@@ -112,10 +109,14 @@ function Dashboard() {
           </span>
         </div>
 
-        <Board tasks={tasks} setTasks={setTasks} />
+        <Board
+          tasks={tasks}
+          setTasks={setTasks}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+        />
       </section>
 
-      {/* AI preview */}
       <section className="flex flex-col gap-4 rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/5 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
           <div className="rounded-xl bg-violet-500/15 p-3 text-accent">

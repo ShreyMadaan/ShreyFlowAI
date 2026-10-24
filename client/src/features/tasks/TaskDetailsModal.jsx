@@ -1,9 +1,12 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
+  Circle,
   Flag,
+  Pencil,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -13,30 +16,39 @@ function TaskDetailsModal({
   task,
   onClose,
   onStatusChange,
+  onEditTask,
+  onDeleteTask,
+  onToggleSubtask,
 }) {
+  const [confirmDelete, setConfirmDelete] =
+    useState(false);
+
   useEffect(() => {
     if (!task) return;
 
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key === "Escape") onClose();
     };
 
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
-    return () => {
-      document.removeEventListener(
+    return () =>
+      window.removeEventListener(
         "keydown",
         handleKeyDown
       );
-    };
   }, [task, onClose]);
 
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [task?.id]);
+
   if (!task) return null;
+
+  const handleDelete = () => {
+    onDeleteTask(task.id);
+    onClose();
+  };
 
   return (
     <div
@@ -55,7 +67,7 @@ function TaskDetailsModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">
               Task Details
             </p>
 
@@ -71,27 +83,27 @@ function TaskDetailsModal({
             type="button"
             onClick={onClose}
             aria-label="Close task details"
-            className="rounded-lg p-2 text-muted hover:bg-surface-secondary"
+            className="rounded-lg p-2 hover:bg-surface-secondary"
           >
             <X size={20} />
           </button>
         </div>
 
         <p className="mt-5 text-sm leading-7 text-muted">
-          {task.description}
+          {task.description || "No description"}
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div>
             <label
-              htmlFor="task-status"
+              htmlFor="details-status"
               className="mb-2 block text-xs font-semibold text-muted"
             >
               Status
             </label>
 
             <select
-              id="task-status"
+              id="details-status"
               value={task.status}
               onChange={(event) =>
                 onStatusChange(
@@ -99,7 +111,7 @@ function TaskDetailsModal({
                   event.target.value
                 )
               }
-              className="w-full rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm text-primary outline-none focus:border-violet-500"
+              className="w-full rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm text-primary"
             >
               {BOARD_COLUMNS.map((column) => (
                 <option
@@ -162,18 +174,28 @@ function TaskDetailsModal({
 
             <div className="space-y-3">
               {task.subtasks.map((subtask) => (
-                <div
+                <button
                   key={subtask.id}
-                  className="flex items-center gap-3 text-sm"
+                  type="button"
+                  onClick={() =>
+                    onToggleSubtask(
+                      task.id,
+                      subtask.id
+                    )
+                  }
+                  className="flex w-full items-center gap-3 rounded-lg p-2 text-left text-sm hover:bg-surface-secondary"
                 >
-                  <CheckCircle2
-                    size={17}
-                    className={
-                      subtask.completed
-                        ? "text-emerald-500"
-                        : "text-muted"
-                    }
-                  />
+                  {subtask.completed ? (
+                    <CheckCircle2
+                      size={18}
+                      className="text-emerald-500"
+                    />
+                  ) : (
+                    <Circle
+                      size={18}
+                      className="text-muted"
+                    />
+                  )}
 
                   <span
                     className={
@@ -184,11 +206,64 @@ function TaskDetailsModal({
                   >
                     {subtask.title}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         )}
+
+        <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-app-border pt-5">
+          {confirmDelete ? (
+            <>
+              <span className="mr-auto self-center text-sm text-red-500">
+                Delete this task?
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmDelete(false)
+                }
+                className="rounded-xl border border-app-border px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Confirm Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmDelete(true)
+                }
+                className="flex items-center gap-2 rounded-xl border border-red-500/30 px-4 py-2 text-sm text-red-500 hover:bg-red-500/10"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onEditTask(task);
+                  onClose();
+                }}
+                className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+              >
+                <Pencil size={16} />
+                Edit Task
+              </button>
+            </>
+          )}
+        </div>
       </section>
     </div>
   );

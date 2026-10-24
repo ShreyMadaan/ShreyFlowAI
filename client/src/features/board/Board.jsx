@@ -6,7 +6,12 @@ import { BOARD_COLUMNS } from "../../data/mockData";
 import BoardColumn from "./BoardColumn";
 import TaskDetailsModal from "../tasks/TaskDetailsModal";
 
-function Board({ tasks, setTasks }) {
+function Board({
+  tasks,
+  setTasks,
+  onEditTask,
+  onDeleteTask,
+}) {
   const [selectedTaskId, setSelectedTaskId] =
     useState(null);
 
@@ -15,12 +20,36 @@ function Board({ tasks, setTasks }) {
     null;
 
   const handleStatusChange = (taskId, status) => {
-    setTasks((previousTasks) =>
-      previousTasks.map((task) =>
+    setTasks((previous) =>
+      previous.map((task) =>
         task.id === taskId
           ? { ...task, status }
           : task
       )
+    );
+  };
+
+  const handleToggleSubtask = (
+    taskId,
+    subtaskId
+  ) => {
+    setTasks((previous) =>
+      previous.map((task) => {
+        if (task.id !== taskId) return task;
+
+        return {
+          ...task,
+          subtasks: task.subtasks.map(
+            (subtask) =>
+              subtask.id === subtaskId
+                ? {
+                    ...subtask,
+                    completed: !subtask.completed,
+                  }
+                : subtask
+          ),
+        };
+      })
     );
   };
 
@@ -55,6 +84,9 @@ function Board({ tasks, setTasks }) {
         task={selectedTask}
         onClose={closeTaskDetails}
         onStatusChange={handleStatusChange}
+        onEditTask={onEditTask}
+        onDeleteTask={onDeleteTask}
+        onToggleSubtask={handleToggleSubtask}
       />
     </>
   );

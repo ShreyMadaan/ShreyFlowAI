@@ -4,7 +4,7 @@ import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
-function AppLayout({ children }) {
+function AppLayout({ children, onNewTask }) {
   const [sidebarCollapsed, setSidebarCollapsed] =
     useState(false);
 
@@ -29,6 +29,7 @@ function AppLayout({ children }) {
           onOpenMobileMenu={() =>
             setMobileMenuOpen(true)
           }
+          onNewTask={onNewTask}
         />
 
         <main className="min-h-0 flex-1 overflow-y-auto">
