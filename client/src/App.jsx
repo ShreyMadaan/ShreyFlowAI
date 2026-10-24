@@ -4,12 +4,18 @@ import { useState } from "react";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import CreateTaskModal from "./features/tasks/CreateTaskModal";
-import { INITIAL_TASKS } from "./data/mockData";
+
+import usePersistentTasks from "./hooks/usePersistentTasks";
 
 function App() {
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
+  const { tasks, setTasks, resetTasks } =
+    usePersistentTasks();
+
+  const [isCreateOpen, setIsCreateOpen] =
+    useState(false);
+
+  const [editingTask, setEditingTask] =
+    useState(null);
 
   const handleSaveTask = (taskData) => {
     if (editingTask) {
@@ -26,7 +32,10 @@ function App() {
         id: crypto.randomUUID(),
       };
 
-      setTasks((previous) => [...previous, newTask]);
+      setTasks((previous) => [
+        ...previous,
+        newTask,
+      ]);
     }
 
     setIsCreateOpen(false);
@@ -35,7 +44,9 @@ function App() {
 
   const handleDeleteTask = (taskId) => {
     setTasks((previous) =>
-      previous.filter((task) => task.id !== taskId)
+      previous.filter(
+        (task) => task.id !== taskId
+      )
     );
   };
 
@@ -62,6 +73,7 @@ function App() {
           setTasks={setTasks}
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
+          onResetTasks={resetTasks}
         />
       </AppLayout>
 
