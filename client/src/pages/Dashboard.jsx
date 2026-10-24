@@ -1,63 +1,71 @@
 
+import { useState } from "react";
 import {
-  ArrowUpRight,
   CheckCircle2,
   Clock3,
   ListTodo,
   Sparkles,
 } from "lucide-react";
 
-const stats = [
-  {
-    label: "Total Tasks",
-    value: "0",
-    icon: ListTodo,
-    iconColor: "text-violet-500",
-    iconBg: "bg-violet-500/10",
-  },
-  {
-    label: "In Progress",
-    value: "0",
-    icon: Clock3,
-    iconColor: "text-amber-500",
-    iconBg: "bg-amber-500/10",
-  },
-  {
-    label: "Completed",
-    value: "0",
-    icon: CheckCircle2,
-    iconColor: "text-emerald-500",
-    iconBg: "bg-emerald-500/10",
-  },
-];
+import Board from "../features/board/Board";
+import { INITIAL_TASKS } from "../data/mockData";
 
 function Dashboard() {
+  const [tasks, setTasks] = useState(INITIAL_TASKS);
+
+  const totalTasks = tasks.length;
+
+  const inProgressTasks = tasks.filter(
+    (task) => task.status === "in-progress"
+  ).length;
+
+  const completedTasks = tasks.filter(
+    (task) => task.status === "done"
+  ).length;
+
+  const stats = [
+    {
+      label: "Total Tasks",
+      value: totalTasks,
+      icon: ListTodo,
+      color: "text-violet-500",
+      bg: "bg-violet-500/10",
+    },
+    {
+      label: "In Progress",
+      value: inProgressTasks,
+      icon: Clock3,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10",
+    },
+    {
+      label: "Completed",
+      value: completedTasks,
+      icon: CheckCircle2,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-[1600px] space-y-8 p-4 sm:p-6 lg:p-8">
-      {/* Welcome */}
-      <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
-            Workspace Overview
-          </p>
+    <div className="mx-auto max-w-[1800px] space-y-8 p-4 sm:p-6 lg:p-8">
+      {/* Workspace heading */}
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
+          Workspace Overview
+        </p>
 
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Your Workspace
-          </h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          Your Workspace
+        </h1>
 
-          <p className="mt-2 text-sm text-muted">
-            Stay organized and keep your projects
-            moving forward.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 self-start rounded-full border border-app-border bg-surface px-4 py-2 text-xs text-muted">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          Workspace ready
-        </div>
+        <p className="mt-2 text-sm text-muted">
+          Organize tasks, track progress, and keep
+          your workflow moving.
+        </p>
       </section>
 
-      {/* Stats */}
+      {/* Statistics */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -67,20 +75,13 @@ function Dashboard() {
               key={stat.label}
               className="rounded-2xl border border-app-border bg-surface p-5"
             >
-              <div className="flex items-center justify-between">
-                <div
-                  className={`rounded-xl p-3 ${stat.iconBg} ${stat.iconColor}`}
-                >
-                  <Icon size={22} />
-                </div>
-
-                <ArrowUpRight
-                  size={17}
-                  className="text-muted"
-                />
+              <div
+                className={`mb-4 inline-flex rounded-xl p-3 ${stat.bg} ${stat.color}`}
+              >
+                <Icon size={22} />
               </div>
 
-              <p className="mt-5 text-3xl font-bold">
+              <p className="text-3xl font-bold">
                 {stat.value}
               </p>
 
@@ -92,43 +93,30 @@ function Dashboard() {
         })}
       </section>
 
-      {/* Board */}
-      <section className="rounded-2xl border border-app-border bg-surface">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-app-border p-5">
+      {/* Kanban board */}
+      <section className="rounded-2xl border border-app-border bg-surface p-4 sm:p-5">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">
               My Workspace
             </h2>
 
             <p className="mt-1 text-xs text-muted">
-              Your Kanban board
+              Manage your tasks across five workflow
+              stages.
             </p>
           </div>
 
           <span className="rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-accent">
-            Board View
+            Kanban View
           </span>
         </div>
 
-        <div className="flex min-h-72 flex-col items-center justify-center px-5 py-12 text-center">
-          <div className="mb-5 rounded-2xl bg-violet-500/10 p-5 text-accent">
-            <ListTodo size={34} />
-          </div>
-
-          <h3 className="text-lg font-semibold">
-            Your board is ready
-          </h3>
-
-          <p className="mt-2 max-w-md text-sm leading-6 text-muted">
-            We'll add interactive Kanban columns,
-            task cards, and workflow management in
-            the next milestone.
-          </p>
-        </div>
+        <Board tasks={tasks} setTasks={setTasks} />
       </section>
 
       {/* AI preview */}
-      <section className="flex flex-col justify-between gap-5 rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/5 p-6 sm:flex-row sm:items-center">
+      <section className="flex flex-col gap-4 rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/5 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
           <div className="rounded-xl bg-violet-500/15 p-3 text-accent">
             <Sparkles size={24} />
@@ -136,13 +124,13 @@ function Dashboard() {
 
           <div>
             <h3 className="font-semibold">
-              Meet your AI workflow assistant
+              ShreyFlowAI Assistant
             </h3>
 
             <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
-              Coming soon: intelligent task
-              breakdowns, priority suggestions,
-              and productivity insights.
+              Intelligent task breakdowns, priority
+              recommendations, and workflow insights
+              are coming soon.
             </p>
           </div>
         </div>
