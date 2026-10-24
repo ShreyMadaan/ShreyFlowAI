@@ -1,122 +1,86 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+
+import { Moon, Sun, Workflow } from "lucide-react";
+import { useTheme } from "./context/ThemeContext";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="min-h-screen bg-app text-primary">
+      <header className="flex items-center justify-between border-b border-app-border bg-surface px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-600 text-white">
+            <Workflow size={24} />
+          </div>
+
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">
+              ShreyFlowAI
+            </h1>
+
+            <p className="text-xs text-muted">
+              Plan smarter. Flow faster.
+            </p>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+
         <button
           type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          onClick={toggleTheme}
+          aria-label={`Switch to ${
+            theme === "dark" ? "light" : "dark"
+          } mode`}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-app-border bg-surface-secondary transition-colors hover:border-violet-500"
         >
-          Count is {count}
+          {theme === "dark" ? (
+            <Sun size={20} />
+          ) : (
+            <Moon size={20} />
+          )}
         </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="mx-auto max-w-7xl px-6 py-12">
+        <div className="mb-8">
+          <p className="mb-2 text-sm font-medium text-accent">
+            WORKSPACE OVERVIEW
+          </p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Your productivity workspace
+          </h2>
+
+          <p className="mt-2 text-muted">
+            Organize projects, manage tasks, and
+            keep your workflow moving.
+          </p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <section className="rounded-2xl border border-app-border bg-surface p-8">
+          <div className="mb-4 inline-flex rounded-xl bg-violet-500/10 p-4 text-accent">
+            <Workflow size={32} />
+          </div>
+
+          <h3 className="text-xl font-semibold">
+            Your Kanban workspace is ready
+          </h3>
+
+          <p className="mt-2 max-w-xl text-muted">
+            Next, we'll add the navigation sidebar,
+            dashboard header, and task management
+            board.
+          </p>
+
+          <div className="mt-6 flex items-center gap-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            <span className="text-sm text-muted">
+              Theme system initialized
+            </span>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
