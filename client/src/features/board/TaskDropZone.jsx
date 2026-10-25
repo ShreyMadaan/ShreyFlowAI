@@ -15,21 +15,25 @@ function TaskDropZone({ columnId, index }) {
       ref={ref}
       aria-label={`Drop position ${index + 1}`}
       className={`
-        -my-1 flex h-5 shrink-0 items-center
-        rounded-md transition-colors
+        -my-1 flex h-7 shrink-0 items-center
+        rounded-lg transition-colors duration-150
         ${
           isDropTarget
-            ? "bg-violet-500/20"
+            ? "bg-violet-500/15"
             : "bg-transparent"
         }
       `}
     >
       <div
-        className={`h-1 w-full rounded-full ${
-          isDropTarget
-            ? "bg-violet-500"
-            : "bg-transparent"
-        }`}
+        className={`
+          h-1 w-full rounded-full
+          transition-colors duration-150
+          ${
+            isDropTarget
+              ? "bg-violet-500"
+              : "bg-transparent"
+          }
+        `}
       />
     </div>
   );

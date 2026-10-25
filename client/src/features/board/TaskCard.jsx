@@ -37,10 +37,9 @@ function TaskCard({ task, onClick }) {
     PRIORITY_STYLES[task.priority] ||
     PRIORITY_STYLES.medium;
 
-  const completedSubtasks =
-    task.subtasks.filter(
-      (subtask) => subtask.completed
-    ).length;
+  const completedSubtasks = task.subtasks.filter(
+    (subtask) => subtask.completed
+  ).length;
 
   const totalSubtasks = task.subtasks.length;
 
@@ -57,15 +56,17 @@ function TaskCard({ task, onClick }) {
     <article
       ref={ref}
       className={`
-        rounded-xl border border-app-border
-        bg-surface p-4 shadow-sm
-        transition-shadow
-        hover:border-violet-500/50
-        hover:shadow-lg
-        ${isDragging ? "opacity-50" : ""}
+        rounded-xl border bg-surface p-4 shadow-sm
+        transition-[border-color,box-shadow,opacity]
+        duration-200
+        ${
+          isDragging
+            ? "border-violet-500 opacity-40 shadow-none"
+            : "border-app-border hover:border-violet-500/50 hover:shadow-lg"
+        }
       `}
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span
           className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ${priority.className}`}
         >
@@ -77,17 +78,18 @@ function TaskCard({ task, onClick }) {
           ref={handleRef}
           type="button"
           aria-label={`Drag ${task.title}`}
-          title="Drag to another column"
-          className="touch-none rounded-md p-1 text-muted hover:bg-surface-secondary hover:text-primary"
+          title="Drag task to reorder or change status"
+          className="flex h-10 w-10 shrink-0 touch-none cursor-grab items-center justify-center rounded-lg text-muted transition-colors hover:bg-violet-500/10 hover:text-accent active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-violet-500"
         >
-          <GripVertical size={17} />
+          <GripVertical size={20} />
         </button>
       </div>
 
       <button
         type="button"
         onClick={() => onClick(task)}
-        className="w-full text-left"
+        aria-label={`View details for ${task.title}`}
+        className="w-full rounded-md text-left focus-visible:outline-2 focus-visible:outline-violet-500"
       >
         <h3 className="text-sm font-semibold leading-6">
           {task.title}
