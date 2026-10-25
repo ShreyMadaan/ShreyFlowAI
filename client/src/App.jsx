@@ -6,11 +6,19 @@ import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import CreateTaskModal from "./features/tasks/CreateTaskModal";
 
-import usePersistentTasks from "./hooks/usePersistentTasks";
+import useRemoteTasks from "./hooks/useRemoteTasks";
 
 function App() {
-  const { tasks, setTasks, resetTasks } =
-    usePersistentTasks();
+  const {
+    tasks,
+    loading,
+    error,
+    refetch,
+    createTask,
+    updateTask,
+    deleteTask,
+    reorderTasks,
+  } = useRemoteTasks();
 
   const [isCreateOpen, setIsCreateOpen] =
     useState(false);
@@ -18,89 +26,130 @@ function App() {
   const [editingTask, setEditingTask] =
     useState(null);
 
-  // Create or update a task
-  const handleSaveTask = (taskData) => {
-    if (editingTask) {
-      setTasks((previous) =>
-        previous.map((task) =>
-          task.id === editingTask.id
-            ? { ...task, ...taskData }
-            : task
-        )
-      );
+  const [isSaving, setIsSaving] =
+    useState(false);
 
-      toast.success("Task updated successfully", {
-        description: `"${taskData.title}" has been updated.`,
+  // Create or update a task in MongoDB.
+  const handleSaveTask = async (taskData) => {
+    if (isSaving) return;
+
+    setIsSaving(true);
+
+    try {
+      if (editingTask) {
+        await updateTask(
+          editingTask.id,
+          taskData
+        );
+
+        toast.success(
+          "Task updated successfully",
+          {
+            description: `"${taskData.title}" has been updated.`,
+          }
+        );
+      } else {
+        await createTask({
+          ...taskData,
+          position: tasks.filter(
+            (task) =>
+              task.status === taskData.status
+          ).length,
+        });
+
+        toast.success(
+          "Task created successfully",
+          {
+            description: `"${taskData.title}" has been added to your board.`,
+          }
+        );
+      }
+
+      // Close only after MongoDB confirms success.
+      setIsCreateOpen(false);
+      setEditingTask(null);
+    } catch (err) {
+      toast.error("Unable to save task", {
+        description: err.message,
       });
-    } else {
-      const newTask = {
-        ...taskData,
-        id: crypto.randomUUID(),
-      };
-
-      setTasks((previous) => [
-        ...previous,
-        newTask,
-      ]);
-
-      toast.success("Task created successfully", {
-        description: `"${newTask.title}" has been added to your board.`,
-      });
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsCreateOpen(false);
-    setEditingTask(null);
   };
 
-  // Delete a task
-  const handleDeleteTask = (taskId) => {
-    const taskToDelete = tasks.find(
-      (task) => task.id === taskId
+  // Delete a task from MongoDB.
+  const handleDeleteTask = async (taskId) => {
+    const task = tasks.find(
+      (item) => item.id === taskId
     );
 
-    if (!taskToDelete) {
-      toast.error("Task not found", {
-        description:
-          "The task may have already been removed.",
-      });
-
+    if (!task) {
+      toast.error("Task not found");
       return;
     }
 
-    setTasks((previous) =>
-      previous.filter(
-        (task) => task.id !== taskId
-      )
+    try {
+      await deleteTask(taskId);
+
+      toast.success("Task deleted", {
+        description: `"${task.title}" has been removed.`,
+      });
+    } catch (err) {
+      toast.error("Unable to delete task", {
+        description: err.message,
+      });
+    }
+  };
+
+  // Persist a task's workflow status.
+  const handleStatusChange = async (
+    taskId,
+    status
+  ) => {
+    return updateTask(taskId, { status });
+  };
+
+  // Persist subtask completion.
+  const handleToggleSubtask = async (
+    taskId,
+    subtaskId
+  ) => {
+    const task = tasks.find(
+      (item) => item.id === taskId
     );
 
-    toast.success("Task deleted", {
-      description: `"${taskToDelete.title}" has been removed.`,
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    const subtasks = task.subtasks.map(
+      (subtask) =>
+        subtask.id === subtaskId
+          ? {
+              ...subtask,
+              completed:
+                !subtask.completed,
+            }
+          : subtask
+    );
+
+    return updateTask(taskId, {
+      subtasks,
     });
   };
 
-  // Open task editor
   const handleEditTask = (task) => {
     setEditingTask(task);
     setIsCreateOpen(true);
   };
 
-  // Close task form
   const handleCloseForm = () => {
+    if (isSaving) return;
+
     setIsCreateOpen(false);
     setEditingTask(null);
   };
 
-  // Reset demo board
-  const handleResetTasks = () => {
-    resetTasks();
-
-    toast.success("Demo board restored", {
-      description:
-        "Your original demo tasks are back.",
-    });
-  };
-
-  // Open create task modal
   const handleNewTask = () => {
     setEditingTask(null);
     setIsCreateOpen(true);
@@ -111,21 +160,25 @@ function App() {
       <AppLayout onNewTask={handleNewTask}>
         <Dashboard
           tasks={tasks}
-          setTasks={setTasks}
+          loading={loading}
+          error={error}
+          onRefresh={refetch}
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
-          onResetTasks={handleResetTasks}
+          onStatusChange={handleStatusChange}
+          onToggleSubtask={handleToggleSubtask}
+          onReorder={reorderTasks}
         />
       </AppLayout>
 
       <CreateTaskModal
         isOpen={isCreateOpen}
         task={editingTask}
+        isSaving={isSaving}
         onClose={handleCloseForm}
         onSave={handleSaveTask}
       />
 
-      {/* Global Toast Notifications */}
       <Toaster
         position="bottom-right"
         richColors

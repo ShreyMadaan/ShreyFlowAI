@@ -1,6 +1,15 @@
 
-import { useCallback, useState } from "react";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import {
+  useCallback,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  DragDropProvider,
+  DragOverlay,
+} from "@dnd-kit/react";
+
 import { AutoScroller } from "@dnd-kit/dom";
 import { toast } from "sonner";
 
@@ -9,6 +18,7 @@ import { BOARD_COLUMNS } from "../../data/mockData";
 import BoardColumn from "./BoardColumn";
 import TaskDetailsModal from "../tasks/TaskDetailsModal";
 
+// Configure automatic scrolling while dragging.
 const configureDragPlugins = (defaults) => [
   ...defaults.filter(
     (plugin) => plugin !== AutoScroller
@@ -22,6 +32,8 @@ const configureDragPlugins = (defaults) => [
   }),
 ];
 
+// Calculate the next task order without mutating
+// the existing React state.
 function moveTask(
   previous,
   taskId,
@@ -125,7 +137,8 @@ function moveTask(
     return previous;
   }
 
-  // Do not update state or notify when nothing changed.
+  // Ignore drops that do not change task order
+  // or workflow status.
   const unchanged =
     previous.length === result.length &&
     previous.every(
@@ -139,22 +152,27 @@ function moveTask(
 
 function Board({
   tasks,
-  setTasks,
   onEditTask,
   onDeleteTask,
+  onStatusChange,
+  onToggleSubtask,
+  onReorder,
 }) {
   const [
     selectedTaskId,
     setSelectedTaskId,
   ] = useState(null);
 
+  // Prevent simultaneous reorder requests.
+  const isReorderingRef = useRef(false);
+
   const selectedTask =
     tasks.find(
       (task) => task.id === selectedTaskId
     ) || null;
 
-  // Change task status from details modal
-  const handleStatusChange = (
+  // Persist task status changes to MongoDB.
+  const handleStatusChange = async (
     taskId,
     status
   ) => {
@@ -172,24 +190,24 @@ function Board({
 
     if (!column) return;
 
-    setTasks((previous) =>
-      previous.map((item) =>
-        item.id === taskId
-          ? { ...item, status }
-          : item
-      )
-    );
+    try {
+      await onStatusChange(taskId, status);
 
-    toast.success(
-      `Task moved to ${column.title}`,
-      {
-        description: `"${task.title}" has been updated.`,
-      }
-    );
+      toast.success(
+        `Task moved to ${column.title}`,
+        {
+          description: `"${task.title}" has been updated.`,
+        }
+      );
+    } catch (err) {
+      toast.error("Unable to move task", {
+        description: err.message,
+      });
+    }
   };
 
-  // Toggle subtask completion
-  const handleToggleSubtask = (
+  // Persist subtask completion to MongoDB.
+  const handleToggleSubtask = async (
     taskId,
     subtaskId
   ) => {
@@ -197,49 +215,48 @@ function Board({
       (item) => item.id === taskId
     );
 
-    const subtask = task?.subtasks.find(
+    const subtask = task?.subtasks?.find(
       (item) => item.id === subtaskId
     );
 
-    if (!task || !subtask) return;
+    if (!subtask) return;
 
-    setTasks((previous) =>
-      previous.map((item) =>
-        item.id !== taskId
-          ? item
-          : {
-              ...item,
-              subtasks: item.subtasks.map(
-                (currentSubtask) =>
-                  currentSubtask.id === subtaskId
-                    ? {
-                        ...currentSubtask,
-                        completed:
-                          !currentSubtask.completed,
-                      }
-                    : currentSubtask
-              ),
-            }
-      )
-    );
+    try {
+      await onToggleSubtask(
+        taskId,
+        subtaskId
+      );
 
-    if (subtask.completed) {
-      toast.info("Subtask reopened", {
-        description: subtask.title,
-      });
-    } else {
-      toast.success("Subtask completed", {
-        description: subtask.title,
-      });
+      if (subtask.completed) {
+        toast.info("Subtask reopened", {
+          description: subtask.title,
+        });
+      } else {
+        toast.success("Subtask completed", {
+          description: subtask.title,
+        });
+      }
+    } catch (err) {
+      toast.error(
+        "Unable to update subtask",
+        {
+          description: err.message,
+        }
+      );
     }
   };
 
-  // Drag-and-drop task movement
-  const handleDragEnd = (event) => {
-    if (event.canceled) return;
+  // Persist drag-and-drop changes to MongoDB.
+  const handleDragEnd = async (event) => {
+    if (
+      event.canceled ||
+      isReorderingRef.current
+    ) {
+      return;
+    }
 
     const { source, target } =
-      event.operation;
+      event.operation || {};
 
     if (!source || !target) return;
 
@@ -251,7 +268,6 @@ function Board({
     }
 
     const taskId = sourceId.slice(5);
-
     const targetStatus =
       target.data?.status;
 
@@ -276,22 +292,39 @@ function Board({
       target.data?.index
     );
 
-    // Ignore drops that do not change anything.
+    // No API request for unchanged positions.
     if (nextTasks === tasks) return;
 
-    setTasks(nextTasks);
+    isReorderingRef.current = true;
 
-    if (draggedTask.status !== targetStatus) {
-      toast.success(
-        `Task moved to ${targetColumn.title}`,
+    try {
+      // onReorder performs the optimistic update
+      // and persists positions through the API.
+      await onReorder(nextTasks);
+
+      if (
+        draggedTask.status !== targetStatus
+      ) {
+        toast.success(
+          `Task moved to ${targetColumn.title}`,
+          {
+            description: `"${draggedTask.title}" has been moved.`,
+          }
+        );
+      } else {
+        toast.info("Task reordered", {
+          description: `"${draggedTask.title}" has been repositioned.`,
+        });
+      }
+    } catch (err) {
+      toast.error(
+        "Unable to save task order",
         {
-          description: `"${draggedTask.title}" has been moved.`,
+          description: err.message,
         }
       );
-    } else {
-      toast.info("Task reordered", {
-        description: `"${draggedTask.title}" has been repositioned.`,
-      });
+    } finally {
+      isReorderingRef.current = false;
     }
   };
 
@@ -340,7 +373,9 @@ function Board({
           }}
         >
           {(source) => {
-            const sourceId = String(source.id);
+            const sourceId = String(
+              source.id
+            );
 
             if (
               !sourceId.startsWith("task:")
@@ -395,6 +430,7 @@ function Board({
         </DragOverlay>
       </DragDropProvider>
 
+      {/* Task Details */}
       <TaskDetailsModal
         task={selectedTask}
         onClose={closeTaskDetails}

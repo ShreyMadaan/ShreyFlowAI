@@ -113,6 +113,7 @@ function getSubtaskError(title, subtasks) {
 function CreateTaskModal({
   isOpen,
   task,
+  isSaving = false,
   onClose,
   onSave,
 }) {
@@ -157,12 +158,12 @@ function CreateTaskModal({
 
   const isDirty =
     JSON.stringify(form) !==
-      JSON.stringify(initialFormRef.current) ||
+    JSON.stringify(initialFormRef.current) ||
     newSubtask.trim().length > 0;
 
   // Prevent accidental loss of unsaved changes.
   const requestClose = () => {
-    if (showDiscardConfirm) return;
+    if (isSaving || showDiscardConfirm) return;
 
     if (isDirty) {
       setShowDiscardConfirm(true);
@@ -251,7 +252,7 @@ function CreateTaskModal({
 
   const handleSubmit = (event) => {
     event.preventDefault();
-
+    if (isSaving) return;
     const validationErrors = {};
     const title = form.title.trim();
 
@@ -399,6 +400,7 @@ function CreateTaskModal({
           <form
             onSubmit={handleSubmit}
             noValidate
+            aria-busy={isSaving}
           >
             <div className="space-y-6 px-5 py-6 sm:px-6">
               {/* Task Title */}
@@ -415,12 +417,11 @@ function CreateTaskModal({
                   </label>
 
                   <span
-                    className={`text-xs ${
-                      form.title.length >
-                      MAX_TITLE_LENGTH
+                    className={`text-xs ${form.title.length >
+                        MAX_TITLE_LENGTH
                         ? "text-red-500"
                         : "text-muted"
-                    }`}
+                      }`}
                   >
                     {form.title.length}/
                     {MAX_TITLE_LENGTH}
@@ -448,11 +449,10 @@ function CreateTaskModal({
                       ? "task-title-error"
                       : undefined
                   }
-                  className={`${inputClass} ${
-                    errors.title
+                  className={`${inputClass} ${errors.title
                       ? errorInputClass
                       : ""
-                  }`}
+                    }`}
                 />
 
                 {errors.title && (
@@ -588,11 +588,10 @@ function CreateTaskModal({
                         ? "task-due-date-error"
                         : undefined
                     }
-                    className={`${inputClass} ${
-                      errors.dueDate
+                    className={`${inputClass} ${errors.dueDate
                         ? errorInputClass
                         : ""
-                    }`}
+                      }`}
                   />
                 </div>
 
@@ -712,11 +711,10 @@ function CreateTaskModal({
                         ? "task-subtask-error"
                         : "task-subtask-help"
                     }
-                    className={`${inputClass} min-w-0 flex-1 ${
-                      errors.subtask
+                    className={`${inputClass} min-w-0 flex-1 ${errors.subtask
                         ? errorInputClass
                         : ""
-                    }`}
+                      }`}
                   />
 
                   <button
@@ -759,19 +757,17 @@ function CreateTaskModal({
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span
-                              className={`h-2 w-2 shrink-0 rounded-full ${
-                                subtask.completed
+                              className={`h-2 w-2 shrink-0 rounded-full ${subtask.completed
                                   ? "bg-emerald-500"
                                   : "bg-violet-500"
-                              }`}
+                                }`}
                             />
 
                             <span
-                              className={`min-w-0 break-words text-sm ${
-                                subtask.completed
+                              className={`min-w-0 break-words text-sm ${subtask.completed
                                   ? "text-muted line-through"
                                   : ""
-                              }`}
+                                }`}
                             >
                               {subtask.title}
                             </span>
@@ -809,11 +805,14 @@ function CreateTaskModal({
 
               <button
                 type="submit"
-                className="rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                disabled={isSaving}
+                className="rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isEditing
-                  ? "Save Changes"
-                  : "Create Task"}
+                {isSaving
+                  ? "Saving..."
+                  : isEditing
+                    ? "Save Changes"
+                    : "Create Task"}
               </button>
             </div>
           </form>
