@@ -1,5 +1,6 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import {
   CalendarDays,
   CheckCircle2,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 
 import { BOARD_COLUMNS } from "../../data/mockData";
+import ConfirmModal from "../../components/ui/ConfirmModal";
+import useModalFocus from "../../hooks/useModalFocus";
 
 function TaskDetailsModal({
   task,
@@ -23,21 +26,16 @@ function TaskDetailsModal({
   const [confirmDelete, setConfirmDelete] =
     useState(false);
 
-  useEffect(() => {
-    if (!task) return;
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () =>
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-  }, [task, onClose]);
+  useModalFocus({
+    isOpen: Boolean(task),
+    isTopmost: !confirmDelete,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onClose,
+  });
 
   useEffect(() => {
     setConfirmDelete(false);
@@ -47,225 +45,223 @@ function TaskDetailsModal({
 
   const handleDelete = () => {
     onDeleteTask(task.id);
+    setConfirmDelete(false);
     onClose();
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="task-details-title"
-        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-app-border bg-surface p-6 shadow-2xl"
+    <>
+      {/* Task Details Dialog */}
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4"
+        onMouseDown={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            !confirmDelete
+          ) {
+            onClose();
+          }
+        }}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">
-              Task Details
-            </p>
+        <section
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-details-title"
+          tabIndex={-1}
+          className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-app-border bg-surface p-5 text-primary shadow-2xl sm:p-6"
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">
+                Task Details
+              </p>
 
-            <h2
-              id="task-details-title"
-              className="text-xl font-bold"
-            >
-              {task.title}
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close task details"
-            className="rounded-lg p-2 hover:bg-surface-secondary"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <p className="mt-5 text-sm leading-7 text-muted">
-          {task.description || "No description"}
-        </p>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="details-status"
-              className="mb-2 block text-xs font-semibold text-muted"
-            >
-              Status
-            </label>
-
-            <select
-              id="details-status"
-              value={task.status}
-              onChange={(event) =>
-                onStatusChange(
-                  task.id,
-                  event.target.value
-                )
-              }
-              className="w-full rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm text-primary"
-            >
-              {BOARD_COLUMNS.map((column) => (
-                <option
-                  key={column.id}
-                  value={column.id}
-                >
-                  {column.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-semibold text-muted">
-              Priority
-            </p>
-
-            <div className="flex items-center gap-2 rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm capitalize">
-              <Flag size={16} />
-              {task.priority}
+              <h2
+                id="task-details-title"
+                className="break-words text-xl font-bold"
+              >
+                {task.title}
+              </h2>
             </div>
+
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              aria-label="Close task details"
+              className="shrink-0 rounded-lg p-2 transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-violet-500"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <div>
-            <p className="mb-2 text-xs font-semibold text-muted">
-              Due Date
-            </p>
+          {/* Description */}
+          <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-7 text-muted">
+            {task.description || "No description"}
+          </p>
 
-            <div className="flex items-center gap-2 rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm">
-              <CalendarDays size={16} />
-              {task.dueDate || "Not set"}
-            </div>
-          </div>
-        </div>
+          {/* Task Properties */}
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="details-status"
+                className="mb-2 block text-xs font-semibold text-muted"
+              >
+                Status
+              </label>
 
-        {task.labels.length > 0 && (
-          <div className="mt-6">
-            <p className="mb-3 text-xs font-semibold text-muted">
-              Labels
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              {task.labels.map((label) => (
-                <span
-                  key={label}
-                  className="rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-accent"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {task.subtasks.length > 0 && (
-          <div className="mt-6">
-            <p className="mb-3 text-xs font-semibold text-muted">
-              Subtasks
-            </p>
-
-            <div className="space-y-3">
-              {task.subtasks.map((subtask) => (
-                <button
-                  key={subtask.id}
-                  type="button"
-                  onClick={() =>
-                    onToggleSubtask(
-                      task.id,
-                      subtask.id
-                    )
-                  }
-                  className="flex w-full items-center gap-3 rounded-lg p-2 text-left text-sm hover:bg-surface-secondary"
-                >
-                  {subtask.completed ? (
-                    <CheckCircle2
-                      size={18}
-                      className="text-emerald-500"
-                    />
-                  ) : (
-                    <Circle
-                      size={18}
-                      className="text-muted"
-                    />
-                  )}
-
-                  <span
-                    className={
-                      subtask.completed
-                        ? "text-muted line-through"
-                        : ""
-                    }
+              <select
+                id="details-status"
+                value={task.status}
+                onChange={(event) =>
+                  onStatusChange(
+                    task.id,
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm text-primary focus-visible:outline-2 focus-visible:outline-violet-500"
+              >
+                {BOARD_COLUMNS.map((column) => (
+                  <option
+                    key={column.id}
+                    value={column.id}
                   >
-                    {subtask.title}
-                  </span>
-                </button>
-              ))}
+                    {column.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold text-muted">
+                Priority
+              </p>
+
+              <div className="flex items-center gap-2 rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm capitalize">
+                <Flag size={16} />
+                {task.priority}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold text-muted">
+                Due Date
+              </p>
+
+              <div className="flex items-center gap-2 rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm">
+                <CalendarDays size={16} />
+                {task.dueDate || "Not set"}
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-app-border pt-5">
-          {confirmDelete ? (
-            <>
-              <span className="mr-auto self-center text-sm text-red-500">
-                Delete this task?
-              </span>
+          {/* Labels */}
+          {task.labels.length > 0 && (
+            <div className="mt-6">
+              <p className="mb-3 text-xs font-semibold text-muted">
+                Labels
+              </p>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setConfirmDelete(false)
-                }
-                className="rounded-xl border border-app-border px-4 py-2 text-sm"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Confirm Delete
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() =>
-                  setConfirmDelete(true)
-                }
-                className="flex items-center gap-2 rounded-xl border border-red-500/30 px-4 py-2 text-sm text-red-500 hover:bg-red-500/10"
-              >
-                <Trash2 size={16} />
-                Delete
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onEditTask(task);
-                  onClose();
-                }}
-                className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
-              >
-                <Pencil size={16} />
-                Edit Task
-              </button>
-            </>
+              <div className="flex flex-wrap gap-2">
+                {task.labels.map((label) => (
+                  <span
+                    key={label}
+                    className="rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-accent"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
-      </section>
-    </div>
+
+          {/* Subtasks */}
+          {task.subtasks.length > 0 && (
+            <div className="mt-6">
+              <p className="mb-3 text-xs font-semibold text-muted">
+                Subtasks
+              </p>
+
+              <div className="space-y-3">
+                {task.subtasks.map((subtask) => (
+                  <button
+                    key={subtask.id}
+                    type="button"
+                    onClick={() =>
+                      onToggleSubtask(
+                        task.id,
+                        subtask.id
+                      )
+                    }
+                    className="flex w-full items-center gap-3 rounded-lg p-2 text-left text-sm transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-violet-500"
+                  >
+                    {subtask.completed ? (
+                      <CheckCircle2
+                        size={18}
+                        className="shrink-0 text-emerald-500"
+                      />
+                    ) : (
+                      <Circle
+                        size={18}
+                        className="shrink-0 text-muted"
+                      />
+                    )}
+
+                    <span
+                      className={
+                        subtask.completed
+                          ? "text-muted line-through"
+                          : ""
+                      }
+                    >
+                      {subtask.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-app-border pt-5">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 rounded-xl border border-red-500/30 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-red-500"
+            >
+              <Trash2 size={16} />
+              Delete
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onEditTask(task);
+                onClose();
+              }}
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-violet-500"
+            >
+              <Pencil size={16} />
+              Edit Task
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {/* Delete Confirmation */}
+      <ConfirmModal
+        isOpen={confirmDelete}
+        title="Delete this task?"
+        description={`Are you sure you want to delete "${task.title}"? This action cannot be undone. All associated subtasks will also be removed.`}
+        confirmLabel="Delete Task"
+        cancelLabel="Keep Task"
+        variant="danger"
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+      />
+    </>
   );
 }
 
