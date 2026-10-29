@@ -5,10 +5,18 @@ import { Toaster, toast } from "sonner";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import CreateTaskModal from "./features/tasks/CreateTaskModal";
+import AuthPage from "./features/auth/AuthPage";
+
+import {
+  AuthProvider,
+  useAuth,
+} from "./context/AuthContext";
 
 import useRemoteTasks from "./hooks/useRemoteTasks";
 
-function App() {
+function AuthenticatedWorkspace() {
+  const { token, logout } = useAuth();
+
   const {
     tasks,
     loading,
@@ -18,7 +26,7 @@ function App() {
     updateTask,
     deleteTask,
     reorderTasks,
-  } = useRemoteTasks();
+  } = useRemoteTasks(token, logout);
 
   const [isCreateOpen, setIsCreateOpen] =
     useState(false);
@@ -29,7 +37,6 @@ function App() {
   const [isSaving, setIsSaving] =
     useState(false);
 
-  // Create or update a task in MongoDB.
   const handleSaveTask = async (taskData) => {
     if (isSaving) return;
 
@@ -65,19 +72,19 @@ function App() {
         );
       }
 
-      // Close only after MongoDB confirms success.
       setIsCreateOpen(false);
       setEditingTask(null);
     } catch (err) {
-      toast.error("Unable to save task", {
-        description: err.message,
-      });
+      if (err.status !== 401) {
+        toast.error("Unable to save task", {
+          description: err.message,
+        });
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Delete a task from MongoDB.
   const handleDeleteTask = async (taskId) => {
     const task = tasks.find(
       (item) => item.id === taskId
@@ -95,21 +102,25 @@ function App() {
         description: `"${task.title}" has been removed.`,
       });
     } catch (err) {
-      toast.error("Unable to delete task", {
-        description: err.message,
-      });
+      if (err.status !== 401) {
+        toast.error("Unable to delete task", {
+          description: err.message,
+        });
+      }
+
+      throw err;
     }
   };
 
-  // Persist a task's workflow status.
   const handleStatusChange = async (
     taskId,
     status
   ) => {
-    return updateTask(taskId, { status });
+    return updateTask(taskId, {
+      status,
+    });
   };
 
-  // Persist subtask completion.
   const handleToggleSubtask = async (
     taskId,
     subtaskId
@@ -178,6 +189,25 @@ function App() {
         onClose={handleCloseForm}
         onSave={handleSaveTask}
       />
+    </>
+  );
+}
+
+function AppContent() {
+  const {
+    isAuthenticated,
+    token,
+  } = useAuth();
+
+  return (
+    <>
+      {isAuthenticated ? (
+        <AuthenticatedWorkspace
+          key={token}
+        />
+      ) : (
+        <AuthPage />
+      )}
 
       <Toaster
         position="bottom-right"
@@ -193,6 +223,14 @@ function App() {
         }}
       />
     </>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

@@ -1,6 +1,7 @@
 
 import {
   Bell,
+  LogOut,
   Menu,
   Moon,
   Plus,
@@ -9,15 +10,25 @@ import {
 } from "lucide-react";
 
 import { useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 
-function Header({ onOpenMobileMenu, onNewTask }) {
+function Header({
+  onOpenMobileMenu,
+  onNewTask,
+}) {
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
+
+  const displayName =
+    user?.name || "User";
+
+  const initial =
+    displayName.charAt(0).toUpperCase();
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center justify-between gap-2 border-b border-app-border bg-surface px-3 sm:min-h-20 sm:gap-4 sm:px-6">
       {/* Left Section */}
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        {/* Mobile Menu */}
         <button
           type="button"
           onClick={onOpenMobileMenu}
@@ -28,7 +39,6 @@ function Header({ onOpenMobileMenu, onNewTask }) {
           <Menu size={21} />
         </button>
 
-        {/* Page Title */}
         <div className="min-w-0">
           <h2 className="truncate text-base font-bold tracking-tight sm:text-lg">
             Dashboard
@@ -106,6 +116,34 @@ function Header({ onOpenMobileMenu, onNewTask }) {
           <span className="hidden sm:inline">
             New Task
           </span>
+        </button>
+
+        {/* User Profile */}
+        <div className="hidden min-w-0 items-center gap-2 border-l border-app-border pl-3 xl:flex">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-sm font-bold text-violet-500">
+            {initial}
+          </div>
+
+          <div className="min-w-0">
+            <p className="max-w-28 truncate text-sm font-semibold">
+              {displayName}
+            </p>
+
+            <p className="max-w-28 truncate text-xs text-muted">
+              {user?.email}
+            </p>
+          </div>
+        </div>
+
+        {/* Logout */}
+        <button
+          type="button"
+          onClick={() => logout()}
+          aria-label="Log out"
+          title="Log out"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-app-border text-muted transition-colors hover:bg-red-500/10 hover:text-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+        >
+          <LogOut size={18} />
         </button>
       </div>
     </header>

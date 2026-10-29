@@ -2,11 +2,25 @@
 const express = require("express");
 const cors = require("cors");
 
-const healthRoutes = require("./routes/healthRoutes");
-const taskRoutes = require("./routes/taskRoutes");
+const healthRoutes = require(
+  "./routes/healthRoutes"
+);
 
-const notFound = require("./middleware/notFound");
-const errorHandler = require("./middleware/errorHandler");
+const taskRoutes = require(
+  "./routes/taskRoutes"
+);
+
+const authRoutes = require(
+  "./routes/authRoutes"
+);
+
+const notFound = require(
+  "./middleware/notFound"
+);
+
+const errorHandler = require(
+  "./middleware/errorHandler"
+);
 
 const app = express();
 
@@ -30,6 +44,13 @@ app.use(
 
 // API routes
 app.use("/api/health", healthRoutes);
+
+// Authentication endpoints
+app.use("/api/auth", authRoutes);
+
+// Task endpoints
+// TODO Milestone 4.3:
+// Protect routes and scope tasks by owner.
 app.use("/api/tasks", taskRoutes);
 
 // 404 handler

@@ -39,6 +39,20 @@ const taskSchema = new mongoose.Schema(
       default: randomUUID,
     },
 
+    // Each task belongs to one registered user.
+    // Existing tasks without an owner are preserved
+    // until we explicitly migrate them.
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [
+        true,
+        "Task owner is required",
+      ],
+      index: true,
+      immutable: true,
+    },
+
     title: {
       type: String,
       required: [
@@ -110,7 +124,6 @@ const taskSchema = new mongoose.Schema(
       default: [],
     },
 
-    // Used later for persistent drag-and-drop ordering.
     position: {
       type: Number,
       default: 0,
@@ -124,7 +137,9 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
+// Efficient owner-scoped board queries.
 taskSchema.index({
+  owner: 1,
   status: 1,
   position: 1,
 });

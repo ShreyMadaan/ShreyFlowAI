@@ -4,8 +4,25 @@ const API_BASE_URL = (
   "http://localhost:5000/api"
 ).replace(/\/+$/, "");
 
-const request = async (endpoint, options = {}) => {
-  const { body, headers, ...restOptions } = options;
+const request = async (
+  endpoint,
+  token,
+  options = {}
+) => {
+  const {
+    body,
+    headers,
+    ...restOptions
+  } = options;
+
+  if (!token) {
+    const error = new Error(
+      "Please log in to access your tasks."
+    );
+
+    error.status = 401;
+    throw error;
+  }
 
   let response;
 
@@ -16,12 +33,19 @@ const request = async (endpoint, options = {}) => {
         ...restOptions,
         headers: {
           ...(body !== undefined
-            ? { "Content-Type": "application/json" }
+            ? {
+                "Content-Type":
+                  "application/json",
+              }
             : {}),
+          Authorization:
+            `Bearer ${token}`,
           ...headers,
         },
         ...(body !== undefined
-          ? { body: JSON.stringify(body) }
+          ? {
+              body: JSON.stringify(body),
+            }
           : {}),
       }
     );
@@ -31,15 +55,22 @@ const request = async (endpoint, options = {}) => {
     );
   }
 
-  const result = await response.json().catch(
-    () => null
-  );
+  const result = await response
+    .json()
+    .catch(() => null);
 
-  if (!response.ok || result?.success === false) {
-    throw new Error(
+  if (
+    !response.ok ||
+    result?.success === false
+  ) {
+    const error = new Error(
       result?.message ||
-      `Request failed with status ${response.status}`
+        `Request failed with status ${response.status}`
     );
+
+    error.status = response.status;
+
+    throw error;
   }
 
   return result?.data;
@@ -47,23 +78,28 @@ const request = async (endpoint, options = {}) => {
 
 export const taskApi = {
   // GET /api/tasks
-  getAll: () => request("/tasks"),
+  getAll: (token) =>
+    request("/tasks", token),
 
   // GET /api/tasks/:id
-  getById: (id) =>
-    request(`/tasks/${encodeURIComponent(id)}`),
+  getById: (token, id) =>
+    request(
+      `/tasks/${encodeURIComponent(id)}`,
+      token
+    ),
 
   // POST /api/tasks
-  create: (taskData) =>
-    request("/tasks", {
+  create: (token, taskData) =>
+    request("/tasks", token, {
       method: "POST",
       body: taskData,
     }),
 
   // PATCH /api/tasks/:id
-  update: (id, updates) =>
+  update: (token, id, updates) =>
     request(
       `/tasks/${encodeURIComponent(id)}`,
+      token,
       {
         method: "PATCH",
         body: updates,
@@ -71,18 +107,25 @@ export const taskApi = {
     ),
 
   // DELETE /api/tasks/:id
-  delete: (id) =>
+  delete: (token, id) =>
     request(
       `/tasks/${encodeURIComponent(id)}`,
+      token,
       {
         method: "DELETE",
       }
     ),
 
   // PATCH /api/tasks/reorder
-  reorder: (updates) =>
-    request("/tasks/reorder", {
-      method: "PATCH",
-      body: { updates },
-    }),
+  reorder: (token, updates) =>
+    request(
+      "/tasks/reorder",
+      token,
+      {
+        method: "PATCH",
+        body: {
+          updates,
+        },
+      }
+    ),
 };

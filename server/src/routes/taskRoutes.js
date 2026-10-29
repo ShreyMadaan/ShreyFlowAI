@@ -10,7 +10,14 @@ const {
   reorderTasks,
 } = require("../controllers/taskController");
 
+const requireAuth = require(
+  "../middleware/authMiddleware"
+);
+
 const router = express.Router();
+
+// Protect every route defined below.
+router.use(requireAuth);
 
 router
   .route("/")

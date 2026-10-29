@@ -32,7 +32,9 @@ const pickFields = (body, fields) => {
 // GET /api/tasks
 const getAllTasks = async (req, res, next) => {
   try {
-    const tasks = await Task.find({})
+    const tasks = await Task.find({
+      owner: req.user._id,
+    })
       .sort({ position: 1, createdAt: 1 })
       .lean();
 
@@ -51,6 +53,7 @@ const getTaskById = async (req, res, next) => {
   try {
     const task = await Task.findOne({
       id: req.params.id,
+      owner: req.user._id,
     }).lean();
 
     if (!task) {
@@ -88,7 +91,12 @@ const createTask = async (req, res, next) => {
       ["id", ...ALLOWED_FIELDS]
     );
 
-    const task = await Task.create(taskData);
+    // Never accept owner from the request body.
+    // Ownership is derived from the verified JWT.
+    const task = await Task.create({
+      ...taskData,
+      owner: req.user._id,
+    });
 
     return res.status(201).json({
       success: true,
@@ -148,19 +156,26 @@ const reorderTasks = async (req, res, next) => {
       seenIds.add(update.id);
     }
 
-    const ids = updates.map((update) => update.id);
+    const ids = updates.map(
+      (update) => update.id
+    );
 
-    // Atlas supports transactions, so either every
-    // task update succeeds or none is committed.
+    const ownerId = req.user._id;
+
+    // Transaction ensures the entire batch succeeds
+    // or none of the updates are committed.
     await mongoose.connection.transaction(
       async (session) => {
         const existingTasks = await Task.find({
           id: { $in: ids },
+          owner: ownerId,
         })
           .select("id")
           .session(session)
           .lean();
 
+        // If even one task is not owned by this user,
+        // reject the entire batch.
         if (existingTasks.length !== ids.length) {
           const error = new Error(
             "One or more tasks were not found"
@@ -169,33 +184,44 @@ const reorderTasks = async (req, res, next) => {
           throw error;
         }
 
-        const operations = updates.map((update) => ({
-          updateOne: {
-            filter: { id: update.id },
-            update: {
-              $set: {
-                status: update.status.trim(),
-                position: update.position,
+        const operations = updates.map(
+          (update) => ({
+            updateOne: {
+              filter: {
+                id: update.id,
+                owner: ownerId,
+              },
+              update: {
+                $set: {
+                  status: update.status.trim(),
+                  position: update.position,
+                },
               },
             },
-          },
-        }));
+          })
+        );
 
         const result = await Task.bulkWrite(
           operations,
-          { session, ordered: true }
+          {
+            session,
+            ordered: true,
+          }
         );
 
         if (result.matchedCount !== ids.length) {
-          throw new Error(
-            "Not all tasks could be reordered"
+          const error = new Error(
+            "One or more tasks were not found"
           );
+          error.statusCode = 404;
+          throw error;
         }
       }
     );
 
     const updatedTasks = await Task.find({
       id: { $in: ids },
+      owner: ownerId,
     })
       .sort({
         status: 1,
@@ -242,6 +268,7 @@ const updateTask = async (req, res, next) => {
 
     const task = await Task.findOne({
       id: req.params.id,
+      owner: req.user._id,
     });
 
     if (!task) {
@@ -252,6 +279,7 @@ const updateTask = async (req, res, next) => {
     }
 
     Object.assign(task, updates);
+
     await task.save();
 
     return res.status(200).json({
@@ -269,6 +297,7 @@ const deleteTask = async (req, res, next) => {
   try {
     const task = await Task.findOneAndDelete({
       id: req.params.id,
+      owner: req.user._id,
     });
 
     if (!task) {
