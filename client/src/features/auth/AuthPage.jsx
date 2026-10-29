@@ -1,15 +1,14 @@
 
 import { useState } from "react";
+import { GoogleLogin } from "@react-oauth/google";
 import {
   ArrowRight,
-  CheckCircle2,
   Eye,
   EyeOff,
   KanbanSquare,
   LockKeyhole,
   Mail,
   Moon,
-  ShieldCheck,
   Sparkles,
   Sun,
   UserRound,
@@ -19,33 +18,36 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
 function AuthPage() {
-  const { login, register } = useAuth();
+  const {
+    login,
+    register,
+    googleLogin,
+  } = useAuth();
+
   const { theme, toggleTheme } = useTheme();
 
   const [mode, setMode] = useState("login");
-
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
   });
-
   const [showPassword, setShowPassword] =
     useState(false);
-
   const [isSubmitting, setIsSubmitting] =
     useState(false);
-
   const [error, setError] = useState("");
 
   const isSignup = mode === "signup";
+  const googleConfigured = Boolean(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID
+  );
 
   const updateField = (field, value) => {
     setForm((previous) => ({
       ...previous,
       [field]: value,
     }));
-
     setError("");
   };
 
@@ -55,14 +57,12 @@ function AuthPage() {
         ? "signup"
         : "login"
     );
-
     setError("");
     setShowPassword(false);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     if (isSubmitting) return;
 
     const email = form.email.trim();
@@ -70,25 +70,27 @@ function AuthPage() {
 
     if (!email || !password) {
       setError(
-        "Please enter your email and password."
+        "Email and password are required."
       );
       return;
     }
 
     if (isSignup) {
       const name = form.name.trim();
-
-      if (name.length < 2) {
-        setError(
-          "Name must contain at least 2 characters."
-        );
-        return;
-      }
-
       const passwordBytes =
         new TextEncoder().encode(
           password
         ).length;
+
+      if (
+        name.length < 2 ||
+        name.length > 80
+      ) {
+        setError(
+          "Name must contain between 2 and 80 characters."
+        );
+        return;
+      }
 
       if (
         passwordBytes < 8 ||
@@ -112,56 +114,85 @@ function AuthPage() {
           password,
         });
       } else {
-        await login({
-          email,
-          password,
-        });
+        await login({ email, password });
       }
-
-      // AuthContext updates the session.
-      // App.jsx will display the dashboard.
     } catch (err) {
       setError(
         err.message ||
-          "Authentication failed. Please try again."
+          "Authentication failed."
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleGoogleSuccess = async (
+    credentialResponse
+  ) => {
+    if (isSubmitting) return;
+
+    const credential =
+      credentialResponse?.credential;
+
+    if (!credential) {
+      setError(
+        "Google did not return a valid credential."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      await googleLogin(credential);
+    } catch (err) {
+      setError(
+        err.message ||
+          "Google sign-in failed."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const inputClass =
+    "h-12 w-full rounded-xl border border-app-border " +
+    "bg-surface pl-11 pr-4 text-sm text-primary " +
+    "outline-none transition-colors " +
+    "placeholder:text-muted focus:border-violet-500 " +
+    "disabled:opacity-60";
+
   return (
     <div className="min-h-screen bg-app text-primary">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Branding Panel */}
-        <section className="relative hidden overflow-hidden bg-slate-950 px-12 py-12 text-white lg:flex lg:flex-col lg:justify-between xl:px-20">
-          <div className="pointer-events-none absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-violet-600/20 blur-3xl" />
-
-          <div className="pointer-events-none absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-3xl" />
+        {/* Brand Panel */}
+        <aside className="relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between xl:p-20">
+          <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-indigo-600/20 blur-3xl" />
 
           <div className="relative z-10 flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600">
-              <KanbanSquare size={25} />
+              <KanbanSquare size={24} />
             </div>
 
             <div>
-              <h1 className="text-xl font-bold tracking-tight">
+              <h1 className="text-xl font-bold">
                 ShreyFlowAI
               </h1>
-
               <p className="text-xs text-slate-400">
                 Intelligent workflow management
               </p>
             </div>
           </div>
 
-          <div className="relative z-10 max-w-xl">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300">
+          <div className="relative z-10 max-w-lg">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-500/10 px-4 py-2 text-xs font-medium text-violet-300">
               <Sparkles size={15} />
-              Your workspace, reimagined
+              Your personal workspace
             </div>
 
-            <h2 className="text-5xl font-bold leading-tight tracking-tight xl:text-6xl">
+            <h2 className="text-5xl font-bold leading-tight tracking-tight">
               Organize work.
               <br />
               <span className="text-violet-400">
@@ -170,61 +201,34 @@ function AuthPage() {
             </h2>
 
             <p className="mt-6 max-w-md text-base leading-8 text-slate-400">
-              Turn your ideas into action with
-              a focused Kanban workspace.
-              Plan, prioritize, and track
-              what matters.
+              Plan your tasks, track progress,
+              and stay focused with a modern
+              Kanban workspace built around you.
             </p>
-
-            <div className="mt-12 space-y-5">
-              {[
-                "Organize tasks across workflow stages",
-                "Keep your projects and priorities in focus",
-                "Access your personal task workspace",
-              ].map((feature) => (
-                <div
-                  key={feature}
-                  className="flex items-center gap-3 text-sm text-slate-300"
-                >
-                  <CheckCircle2
-                    size={19}
-                    className="shrink-0 text-violet-400"
-                  />
-                  {feature}
-                </div>
-              ))}
-            </div>
           </div>
 
           <p className="relative z-10 text-xs text-slate-500">
-            ShreyFlowAI — Built for better workflows.
+            ShreyFlowAI — Work smarter, every day.
           </p>
-        </section>
+        </aside>
 
-        {/* Authentication Form */}
-        <section className="flex min-h-screen flex-col px-5 py-6 sm:px-10 lg:px-12 xl:px-20">
-          <div className="flex items-center justify-between gap-3">
+        {/* Authentication Panel */}
+        <main className="flex min-h-screen flex-col px-5 py-6 sm:px-10 lg:px-12 xl:px-20">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 lg:hidden">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
                 <KanbanSquare size={21} />
               </div>
-
-              <span className="text-lg font-bold">
+              <span className="font-bold">
                 ShreyFlowAI
               </span>
             </div>
 
-            <div className="hidden lg:block" />
-
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={
-                theme === "dark"
-                  ? "Switch to light mode"
-                  : "Switch to dark mode"
-              }
-              className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl border border-app-border bg-surface transition-colors hover:bg-surface-secondary"
+              aria-label="Toggle color theme"
+              className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl border border-app-border bg-surface hover:bg-surface-secondary"
             >
               {theme === "dark" ? (
                 <Sun size={19} />
@@ -246,12 +250,54 @@ function AuthPage() {
                   : "Welcome back"}
               </h2>
 
-              <p className="mt-3 text-sm leading-6 text-muted">
+              <p className="mt-3 text-sm text-muted">
                 {isSignup
-                  ? "Get started with your personal Kanban workspace."
-                  : "Sign in to continue managing your tasks."}
+                  ? "Start organizing your workflow."
+                  : "Sign in to access your workspace."}
               </p>
             </div>
+
+            {/* Google Sign-in */}
+            {googleConfigured && (
+              <div
+                className={
+                  "flex min-h-11 justify-center " +
+                  (isSubmitting
+                    ? "pointer-events-none opacity-50"
+                    : "")
+                }
+                aria-label="Google authentication"
+              >
+                <GoogleLogin
+                  key={theme}
+                  onSuccess={handleGoogleSuccess}
+                  onError={() =>
+                    setError(
+                      "Google sign-in failed. Please try again."
+                    )
+                  }
+                  theme={
+                    theme === "dark"
+                      ? "filled_black"
+                      : "outline"
+                  }
+                  size="large"
+                  shape="rectangular"
+                  text="continue_with"
+                  width="320"
+                />
+              </div>
+            )}
+
+            {googleConfigured && (
+              <div className="my-7 flex items-center gap-3">
+                <div className="h-px flex-1 bg-app-border" />
+                <span className="text-xs text-muted">
+                  or continue with email
+                </span>
+                <div className="h-px flex-1 bg-app-border" />
+              </div>
+            )}
 
             <form
               onSubmit={handleSubmit}
@@ -266,17 +312,16 @@ function AuthPage() {
                   >
                     Full name
                   </label>
-
                   <div className="relative">
                     <UserRound
                       size={18}
                       className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
                     />
-
                     <input
                       id="auth-name"
                       type="text"
                       autoComplete="name"
+                      placeholder="Your name"
                       required
                       minLength={2}
                       maxLength={80}
@@ -288,8 +333,7 @@ function AuthPage() {
                           event.target.value
                         )
                       }
-                      placeholder="Enter your name"
-                      className="h-12 w-full rounded-xl border border-app-border bg-surface pl-12 pr-4 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-violet-500 disabled:opacity-60"
+                      className={inputClass}
                     />
                   </div>
                 </div>
@@ -302,17 +346,16 @@ function AuthPage() {
                 >
                   Email address
                 </label>
-
                 <div className="relative">
                   <Mail
                     size={18}
                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
                   />
-
                   <input
                     id="auth-email"
                     type="email"
                     autoComplete="email"
+                    placeholder="you@example.com"
                     required
                     disabled={isSubmitting}
                     value={form.email}
@@ -322,8 +365,7 @@ function AuthPage() {
                         event.target.value
                       )
                     }
-                    placeholder="you@example.com"
-                    className="h-12 w-full rounded-xl border border-app-border bg-surface pl-12 pr-4 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-violet-500 disabled:opacity-60"
+                    className={inputClass}
                   />
                 </div>
               </div>
@@ -335,13 +377,11 @@ function AuthPage() {
                 >
                   Password
                 </label>
-
                 <div className="relative">
                   <LockKeyhole
                     size={18}
                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
                   />
-
                   <input
                     id="auth-password"
                     type={
@@ -354,6 +394,7 @@ function AuthPage() {
                         ? "new-password"
                         : "current-password"
                     }
+                    placeholder="Enter password"
                     required
                     disabled={isSubmitting}
                     value={form.password}
@@ -363,10 +404,10 @@ function AuthPage() {
                         event.target.value
                       )
                     }
-                    placeholder="Enter your password"
-                    className="h-12 w-full rounded-xl border border-app-border bg-surface pl-12 pr-12 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-violet-500 disabled:opacity-60"
+                    className={
+                      inputClass + " pr-12"
+                    }
                   />
-
                   <button
                     type="button"
                     onClick={() =>
@@ -379,7 +420,7 @@ function AuthPage() {
                         ? "Hide password"
                         : "Show password"
                     }
-                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-primary"
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-muted hover:text-primary"
                   >
                     {showPassword ? (
                       <EyeOff size={18} />
@@ -391,7 +432,7 @@ function AuthPage() {
 
                 {isSignup && (
                   <p className="mt-2 text-xs text-muted">
-                    Use at least 8 characters.
+                    Minimum 8 characters.
                   </p>
                 )}
               </div>
@@ -408,14 +449,13 @@ function AuthPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting
                   ? "Please wait..."
                   : isSignup
                     ? "Create account"
                     : "Sign in"}
-
                 {!isSubmitting && (
                   <ArrowRight size={18} />
                 )}
@@ -426,27 +466,20 @@ function AuthPage() {
               {isSignup
                 ? "Already have an account?"
                 : "Don't have an account?"}
-
               {" "}
-
               <button
                 type="button"
                 onClick={switchMode}
                 disabled={isSubmitting}
-                className="font-semibold text-violet-500 hover:underline disabled:opacity-60"
+                className="font-semibold text-violet-500 hover:underline"
               >
                 {isSignup
                   ? "Sign in"
                   : "Create an account"}
               </button>
             </p>
-
-            <div className="mt-10 flex items-center justify-center gap-2 text-xs text-muted">
-              <ShieldCheck size={15} />
-              Passwords are protected with bcrypt.
-            </div>
           </div>
-        </section>
+        </main>
       </div>
     </div>
   );

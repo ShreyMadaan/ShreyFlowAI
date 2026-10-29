@@ -15,15 +15,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
 
-  const login = useCallback(async ({
-    email,
-    password,
-  }) => {
-    const data = await authApi.login({
-      email,
-      password,
-    });
-
+  const startSession = useCallback((data) => {
     if (
       !data?.token ||
       !data?.user ||
@@ -39,12 +31,23 @@ export function AuthProvider({ children }) {
       token: data.token,
       user: data.user,
       expiresAt:
-        Date.now() +
-        data.expiresIn * 1000,
+        Date.now() + data.expiresIn * 1000,
     });
 
     return data.user;
   }, []);
+
+  const login = useCallback(
+    async ({ email, password }) => {
+      const data = await authApi.login({
+        email,
+        password,
+      });
+
+      return startSession(data);
+    },
+    [startSession]
+  );
 
   const register = useCallback(
     async ({ name, email, password }) => {
@@ -54,16 +57,21 @@ export function AuthProvider({ children }) {
         password,
       });
 
-      return login({
-        email,
-        password,
-      });
+      return login({ email, password });
     },
     [login]
   );
 
-  // If expectedToken is supplied, only end
-  // the session that owns that token.
+  const googleLogin = useCallback(
+    async (credential) => {
+      const data =
+        await authApi.googleLogin(credential);
+
+      return startSession(data);
+    },
+    [startSession]
+  );
+
   const logout = useCallback(
     (expectedToken) => {
       setSession((previous) => {
@@ -83,17 +91,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!session) return;
 
-    const remainingTime =
+    const remaining =
       session.expiresAt - Date.now();
 
-    if (remainingTime <= 0) {
+    if (remaining <= 0) {
       logout(session.token);
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      logout(session.token);
-    }, remainingTime);
+    const timeoutId = setTimeout(
+      () => logout(session.token),
+      remaining
+    );
 
     return () => clearTimeout(timeoutId);
   }, [session, logout]);
@@ -105,9 +114,16 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(session),
       login,
       register,
+      googleLogin,
       logout,
     }),
-    [session, login, register, logout]
+    [
+      session,
+      login,
+      register,
+      googleLogin,
+      logout,
+    ]
   );
 
   return (

@@ -23,10 +23,34 @@ const userSchema = new mongoose.Schema(
       ],
     },
 
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+      required: true,
+      immutable: true,
+    },
+
+    // Required only for email/password accounts.
     passwordHash: {
       type: String,
-      required: true,
       select: false,
+      required: function () {
+        return this.authProvider === "local";
+      },
+    },
+
+    // Google's stable account identifier (sub).
+    // Existing local accounts do not have this field.
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      immutable: true,
+      required: function () {
+        return this.authProvider === "google";
+      },
     },
 
     role: {

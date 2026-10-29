@@ -19,7 +19,6 @@ const request = async (
     const error = new Error(
       "Please log in to access your tasks."
     );
-
     error.status = 401;
     throw error;
   }
@@ -38,8 +37,7 @@ const request = async (
                   "application/json",
               }
             : {}),
-          Authorization:
-            `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           ...headers,
         },
         ...(body !== undefined
@@ -69,7 +67,6 @@ const request = async (
     );
 
     error.status = response.status;
-
     throw error;
   }
 
@@ -77,25 +74,21 @@ const request = async (
 };
 
 export const taskApi = {
-  // GET /api/tasks
   getAll: (token) =>
     request("/tasks", token),
 
-  // GET /api/tasks/:id
   getById: (token, id) =>
     request(
       `/tasks/${encodeURIComponent(id)}`,
       token
     ),
 
-  // POST /api/tasks
   create: (token, taskData) =>
     request("/tasks", token, {
       method: "POST",
       body: taskData,
     }),
 
-  // PATCH /api/tasks/:id
   update: (token, id, updates) =>
     request(
       `/tasks/${encodeURIComponent(id)}`,
@@ -106,7 +99,6 @@ export const taskApi = {
       }
     ),
 
-  // DELETE /api/tasks/:id
   delete: (token, id) =>
     request(
       `/tasks/${encodeURIComponent(id)}`,
@@ -116,16 +108,9 @@ export const taskApi = {
       }
     ),
 
-  // PATCH /api/tasks/reorder
   reorder: (token, updates) =>
-    request(
-      "/tasks/reorder",
-      token,
-      {
-        method: "PATCH",
-        body: {
-          updates,
-        },
-      }
-    ),
+    request("/tasks/reorder", token, {
+      method: "PATCH",
+      body: { updates },
+    }),
 };

@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Toaster, toast } from "sonner";
 
 import AppLayout from "./components/layout/AppLayout";
@@ -13,6 +14,9 @@ import {
 } from "./context/AuthContext";
 
 import useRemoteTasks from "./hooks/useRemoteTasks";
+
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 function AuthenticatedWorkspace() {
   const { token, logout } = useAuth();
@@ -76,9 +80,10 @@ function AuthenticatedWorkspace() {
       setEditingTask(null);
     } catch (err) {
       if (err.status !== 401) {
-        toast.error("Unable to save task", {
-          description: err.message,
-        });
+        toast.error(
+          "Unable to save task",
+          { description: err.message }
+        );
       }
     } finally {
       setIsSaving(false);
@@ -103,12 +108,11 @@ function AuthenticatedWorkspace() {
       });
     } catch (err) {
       if (err.status !== 401) {
-        toast.error("Unable to delete task", {
-          description: err.message,
-        });
+        toast.error(
+          "Unable to delete task",
+          { description: err.message }
+        );
       }
-
-      throw err;
     }
   };
 
@@ -116,9 +120,7 @@ function AuthenticatedWorkspace() {
     taskId,
     status
   ) => {
-    return updateTask(taskId, {
-      status,
-    });
+    return updateTask(taskId, { status });
   };
 
   const handleToggleSubtask = async (
@@ -227,10 +229,22 @@ function AppContent() {
 }
 
 function App() {
-  return (
+  const content = (
     <AuthProvider>
       <AppContent />
     </AuthProvider>
+  );
+
+  if (!GOOGLE_CLIENT_ID) {
+    return content;
+  }
+
+  return (
+    <GoogleOAuthProvider
+      clientId={GOOGLE_CLIENT_ID}
+    >
+      {content}
+    </GoogleOAuthProvider>
   );
 }
 

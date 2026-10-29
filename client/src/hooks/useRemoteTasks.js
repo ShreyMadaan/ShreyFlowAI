@@ -16,8 +16,6 @@ export default function useRemoteTasks(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Prevent outdated fetches from overwriting
-  // newer task data.
   const requestVersion = useRef(0);
 
   const handleRequestError = useCallback(
@@ -69,8 +67,6 @@ export default function useRemoteTasks(
     refetch();
 
     return () => {
-      // Invalidate outstanding fetches when
-      // the component unmounts or token changes.
       requestVersion.current += 1;
     };
   }, [refetch]);

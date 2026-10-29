@@ -16,22 +16,14 @@ const request = async (endpoint, options = {}) => {
         ...restOptions,
         headers: {
           ...(body !== undefined
-            ? {
-                "Content-Type":
-                  "application/json",
-              }
+            ? { "Content-Type": "application/json" }
             : {}),
           ...(token
-            ? {
-                Authorization:
-                  `Bearer ${token}`,
-              }
+            ? { Authorization: `Bearer ${token}` }
             : {}),
         },
         ...(body !== undefined
-          ? {
-              body: JSON.stringify(body),
-            }
+          ? { body: JSON.stringify(body) }
           : {}),
       }
     );
@@ -55,7 +47,6 @@ const request = async (endpoint, options = {}) => {
     );
 
     error.status = response.status;
-
     throw error;
   }
 
@@ -66,24 +57,21 @@ export const authApi = {
   register: ({ name, email, password }) =>
     request("/auth/register", {
       method: "POST",
-      body: {
-        name,
-        email,
-        password,
-      },
+      body: { name, email, password },
     }),
 
   login: ({ email, password }) =>
     request("/auth/login", {
       method: "POST",
-      body: {
-        email,
-        password,
-      },
+      body: { email, password },
+    }),
+
+  googleLogin: (credential) =>
+    request("/auth/google", {
+      method: "POST",
+      body: { credential },
     }),
 
   me: (token) =>
-    request("/auth/me", {
-      token,
-    }),
+    request("/auth/me", { token }),
 };

@@ -1,13 +1,11 @@
 
 const express = require("express");
-
-const rateLimit = require(
-  "express-rate-limit"
-);
+const rateLimit = require("express-rate-limit");
 
 const {
   register,
   login,
+  googleLogin,
   getCurrentUser,
 } = require("../controllers/authController");
 
@@ -29,18 +27,28 @@ const authLimiter = rateLimit({
   },
 });
 
+// Email/password registration
 router.post(
   "/register",
   authLimiter,
   register
 );
 
+// Email/password login
 router.post(
   "/login",
   authLimiter,
   login
 );
 
+// Google signup/login
+router.post(
+  "/google",
+  authLimiter,
+  googleLogin
+);
+
+// Current authenticated user
 router.get(
   "/me",
   requireAuth,
