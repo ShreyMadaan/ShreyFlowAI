@@ -19,7 +19,10 @@ const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 function AuthenticatedWorkspace() {
-  const { token, logout } = useAuth();
+  const {
+    token,
+    refreshSession,
+  } = useAuth();
 
   const {
     tasks,
@@ -30,7 +33,10 @@ function AuthenticatedWorkspace() {
     updateTask,
     deleteTask,
     reorderTasks,
-  } = useRemoteTasks(token, logout);
+  } = useRemoteTasks(
+    token,
+    refreshSession
+  );
 
   const [isCreateOpen, setIsCreateOpen] =
     useState(false);
@@ -82,7 +88,9 @@ function AuthenticatedWorkspace() {
       if (err.status !== 401) {
         toast.error(
           "Unable to save task",
-          { description: err.message }
+          {
+            description: err.message,
+          }
         );
       }
     } finally {
@@ -110,7 +118,9 @@ function AuthenticatedWorkspace() {
       if (err.status !== 401) {
         toast.error(
           "Unable to delete task",
-          { description: err.message }
+          {
+            description: err.message,
+          }
         );
       }
     }
@@ -120,7 +130,9 @@ function AuthenticatedWorkspace() {
     taskId,
     status
   ) => {
-    return updateTask(taskId, { status });
+    return updateTask(taskId, {
+      status,
+    });
   };
 
   const handleToggleSubtask = async (
@@ -198,14 +210,64 @@ function AuthenticatedWorkspace() {
 function AppContent() {
   const {
     isAuthenticated,
-    token,
+    isInitializing,
+    initializationError,
+    user,
+    refreshSession,
   } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-app text-primary">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-violet-500/20 border-t-violet-500" />
+
+          <h2 className="text-lg font-semibold">
+            ShreyFlowAI
+          </h2>
+
+          <p className="mt-2 text-sm text-muted">
+            Restoring your workspace...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    initializationError &&
+    !isAuthenticated
+  ) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-app px-5 text-primary">
+        <div className="w-full max-w-sm text-center">
+          <h2 className="text-xl font-bold">
+            Unable to restore session
+          </h2>
+
+          <p className="mt-3 text-sm text-muted">
+            {initializationError}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              refreshSession().catch(() => {});
+            }}
+            className="mt-6 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
       {isAuthenticated ? (
         <AuthenticatedWorkspace
-          key={token}
+          key={user.id}
         />
       ) : (
         <AuthPage />

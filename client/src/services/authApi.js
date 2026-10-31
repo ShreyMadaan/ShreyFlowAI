@@ -5,7 +5,11 @@ const API_BASE_URL = (
 ).replace(/\/+$/, "");
 
 const request = async (endpoint, options = {}) => {
-  const { body, token, ...restOptions } = options;
+  const {
+    body,
+    token,
+    ...restOptions
+  } = options;
 
   let response;
 
@@ -14,16 +18,28 @@ const request = async (endpoint, options = {}) => {
       `${API_BASE_URL}${endpoint}`,
       {
         ...restOptions,
+
+        // Send and receive refresh cookies.
+        credentials: "include",
+
         headers: {
           ...(body !== undefined
-            ? { "Content-Type": "application/json" }
+            ? {
+                "Content-Type": "application/json",
+              }
             : {}),
+
           ...(token
-            ? { Authorization: `Bearer ${token}` }
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
             : {}),
         },
+
         ...(body !== undefined
-          ? { body: JSON.stringify(body) }
+          ? {
+              body: JSON.stringify(body),
+            }
           : {}),
       }
     );
@@ -73,5 +89,21 @@ export const authApi = {
     }),
 
   me: (token) =>
-    request("/auth/me", { token }),
+    request("/auth/me", {
+      method: "GET",
+      token,
+    }),
+
+  // Restore session on page reload
+  // and renew access tokens.
+  refresh: () =>
+    request("/auth/refresh", {
+      method: "POST",
+    }),
+
+  // Revoke session on the server.
+  logout: () =>
+    request("/auth/logout", {
+      method: "POST",
+    }),
 };

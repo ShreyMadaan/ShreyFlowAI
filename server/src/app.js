@@ -1,6 +1,7 @@
 
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 
 const healthRoutes = require(
   "./routes/healthRoutes"
@@ -24,39 +25,94 @@ const errorHandler = require(
 
 const app = express();
 
-const allowedOrigin =
-  process.env.CLIENT_URL ||
-  "http://localhost:5173";
+// ============================================
+// CORS Configuration
+// ============================================
 
-// CORS
+const allowedOrigins = (
+  process.env.CLIENT_URL ||
+  "http://localhost:5173"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: (origin, callback) => {
+      // Requests without an Origin header can
+      // come from scripts or API testing tools.
+      // Cookie-based endpoints will get their
+      // own stricter CSRF origin validation.
+      if (
+        !origin ||
+        allowedOrigins.includes(origin)
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error(
+          "Not allowed by CORS"
+        )
+      );
+    },
+
+    // Required for refresh-token cookies.
+    credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PATCH",
+      "PUT",
+      "DELETE",
+      "OPTIONS",
+    ],
   })
 );
 
-// JSON body parser
+// ============================================
+// Request Parsers
+// ============================================
+
 app.use(
   express.json({
     limit: "1mb",
   })
 );
 
-// API routes
-app.use("/api/health", healthRoutes);
+// Parse cookies from incoming requests.
+app.use(cookieParser());
 
-// Authentication endpoints
-app.use("/api/auth", authRoutes);
+// ============================================
+// API Routes
+// ============================================
 
-// Task endpoints
-// TODO Milestone 4.3:
-// Protect routes and scope tasks by owner.
-app.use("/api/tasks", taskRoutes);
+// Health check
+app.use(
+  "/api/health",
+  healthRoutes
+);
 
-// 404 handler
+// Authentication
+app.use(
+  "/api/auth",
+  authRoutes
+);
+
+// Protected, user-owned task routes
+app.use(
+  "/api/tasks",
+  taskRoutes
+);
+
+// ============================================
+// Error Handling
+// ============================================
+
 app.use(notFound);
 
-// Centralized error handler
 app.use(errorHandler);
 
 module.exports = app;

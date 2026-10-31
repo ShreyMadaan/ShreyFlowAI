@@ -1,72 +1,62 @@
 
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const {
-  OAuth2Client,
-} = require("google-auth-library");
+const { OAuth2Client } = require(
+  "google-auth-library"
+);
 
 const User = require("../models/User");
 
-const ACCESS_TOKEN_EXPIRY = "15m";
-const ACCESS_TOKEN_SECONDS = 900;
+const RefreshSession = require(
+  "../models/RefreshSession"
+);
+
+const {
+  createRefreshSession,
+  rotateRefreshSession,
+  revokeRefreshSession,
+  getRefreshToken,
+  clearRefreshCookie,
+  generateAccessToken,
+  ACCESS_TOKEN_EXPIRY_SECONDS,
+} = require(
+  "../services/refreshSessionService"
+);
+
+const googleClient = new OAuth2Client();
 
 const EMAIL_REGEX =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const googleClient = new OAuth2Client();
 
 const getPublicUser = (user) => ({
   id: user._id.toString(),
   name: user.name,
   email: user.email,
   role: user.role,
-  authProvider: user.authProvider || "local",
 });
 
-const generateAccessToken = (user) => {
-  if (!process.env.JWT_SECRET) {
-    throw new Error(
-      "JWT_SECRET is not configured"
-    );
-  }
-
-  return jwt.sign(
-    {
-      userId: user._id.toString(),
-      role: user.role,
-    },
-    process.env.JWT_SECRET,
-    {
-      algorithm: "HS256",
-      expiresIn: ACCESS_TOKEN_EXPIRY,
-    }
-  );
-};
-
-const sendLoginResponse = (
-  res,
+const buildAuthResponse = (
   user,
-  message = "Login successful"
+  sessionData
+) => ({
+  ...sessionData,
+  user: getPublicUser(user),
+});
+
+// ============================================
+// Register with email and password
+// ============================================
+
+const register = async (
+  req,
+  res,
+  next
 ) => {
-  const token = generateAccessToken(user);
-
-  return res.status(200).json({
-    success: true,
-    message,
-    data: {
-      token,
-      tokenType: "Bearer",
-      expiresIn: ACCESS_TOKEN_SECONDS,
-      user: getPublicUser(user),
-    },
-  });
-};
-
-// POST /api/auth/register
-const register = async (req, res, next) => {
   try {
-    const { name, email, password } =
-      req.body || {};
+    const {
+      name,
+      email,
+      password,
+    } = req.body || {};
 
     if (
       typeof name !== "string" ||
@@ -101,12 +91,16 @@ const register = async (req, res, next) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Enter a valid email address",
+        message:
+          "Enter a valid email address",
       });
     }
 
     const passwordBytes =
-      Buffer.byteLength(password, "utf8");
+      Buffer.byteLength(
+        password,
+        "utf8"
+      );
 
     if (
       passwordBytes < 8 ||
@@ -119,21 +113,21 @@ const register = async (req, res, next) => {
       });
     }
 
-    const existingUser = await User.findOne({
-      email: normalizedEmail,
-    });
+    const existingUser =
+      await User.findOne({
+        email: normalizedEmail,
+      });
 
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: "Email is already registered",
+        message:
+          "Email is already registered",
       });
     }
 
-    const passwordHash = await bcrypt.hash(
-      password,
-      12
-    );
+    const passwordHash =
+      await bcrypt.hash(password, 12);
 
     const user = await User.create({
       name: normalizedName,
@@ -144,14 +138,16 @@ const register = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message:
+        "User registered successfully",
       data: getPublicUser(user),
     });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "Email is already registered",
+        message:
+          "Email is already registered",
       });
     }
 
@@ -159,8 +155,15 @@ const register = async (req, res, next) => {
   }
 };
 
-// POST /api/auth/login
-const login = async (req, res, next) => {
+// ============================================
+// Login with email and password
+// ============================================
+
+const login = async (
+  req,
+  res,
+  next
+) => {
   try {
     const { email, password } =
       req.body || {};
@@ -185,12 +188,10 @@ const login = async (req, res, next) => {
       email: normalizedEmail,
     }).select("+passwordHash");
 
-    // Google-only accounts cannot use
-    // email/password login.
     if (
       !user ||
-      !user.passwordHash ||
-      user.authProvider === "google"
+      user.authProvider === "google" ||
+      typeof user.passwordHash !== "string"
     ) {
       return res.status(401).json({
         success: false,
@@ -211,21 +212,41 @@ const login = async (req, res, next) => {
       });
     }
 
-    return sendLoginResponse(res, user);
+    const sessionData =
+      await createRefreshSession(
+        user,
+        res
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: buildAuthResponse(
+        user,
+        sessionData
+      ),
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// POST /api/auth/google
-const googleLogin = async (req, res, next) => {
+// ============================================
+// Google Login / Signup
+// ============================================
+
+const googleLogin = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const { credential } = req.body || {};
+    const { credential } =
+      req.body || {};
 
     if (
       typeof credential !== "string" ||
-      !credential.trim() ||
-      credential.length > 10000
+      !credential.trim()
     ) {
       return res.status(400).json({
         success: false,
@@ -246,8 +267,6 @@ const googleLogin = async (req, res, next) => {
     let payload;
 
     try {
-      // Verify Google's signature, audience,
-      // issuer and token expiration.
       const ticket =
         await googleClient.verifyIdToken({
           idToken: credential,
@@ -259,14 +278,12 @@ const googleLogin = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message:
-          "Invalid or expired Google credential",
+          "Invalid Google credential",
       });
     }
 
     if (
-      !payload ||
-      typeof payload.sub !== "string" ||
-      !payload.sub ||
+      !payload?.sub ||
       typeof payload.email !== "string" ||
       payload.email_verified !== true
     ) {
@@ -277,106 +294,207 @@ const googleLogin = async (req, res, next) => {
       });
     }
 
-    const normalizedEmail =
+    const googleId = payload.sub;
+
+    const email =
       payload.email.trim().toLowerCase();
 
     if (
-      normalizedEmail.length > 254 ||
-      !EMAIL_REGEX.test(normalizedEmail)
+      email.length > 254 ||
+      !EMAIL_REGEX.test(email)
     ) {
       return res.status(401).json({
         success: false,
         message:
-          "Google did not provide a valid email",
+          "Invalid Google account email",
       });
     }
 
-    // Existing Google account:
-    // Always identify by Google's stable sub,
-    // not by the email address.
     let user = await User.findOne({
-      googleId: payload.sub,
+      googleId,
     });
 
-    if (user) {
-      return sendLoginResponse(
-        res,
-        user,
-        "Google login successful"
-      );
-    }
+    if (!user) {
+      const existingEmailUser =
+        await User.findOne({ email });
 
-    // Do not automatically link Google
-    // to an existing email/password account.
-    const existingEmailUser =
-      await User.findOne({
-        email: normalizedEmail,
-      });
-
-    if (existingEmailUser) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "An account already exists with this email. Sign in using your existing method. Account linking will be available later.",
-      });
-    }
-
-    const googleName =
-      typeof payload.name === "string"
-        ? payload.name.trim()
-        : "";
-
-    const normalizedName =
-      googleName.length >= 2
-        ? googleName.slice(0, 80)
-        : "Google User";
-
-    try {
-      user = await User.create({
-        name: normalizedName,
-        email: normalizedEmail,
-        authProvider: "google",
-        googleId: payload.sub,
-        role: "user",
-      });
-    } catch (error) {
-      if (error.code === 11000) {
-        // Handle concurrent requests from
-        // the same Google account.
-        const existingGoogleUser =
-          await User.findOne({
-            googleId: payload.sub,
-          });
-
-        if (existingGoogleUser) {
-          return sendLoginResponse(
-            res,
-            existingGoogleUser,
-            "Google login successful"
-          );
-        }
-
+      if (existingEmailUser) {
         return res.status(409).json({
           success: false,
           message:
-            "An account already exists with this email. Sign in using your existing method.",
+            "This email is already registered using another sign-in method",
         });
       }
 
-      throw error;
+      const suggestedName =
+        typeof payload.name === "string"
+          ? payload.name.trim()
+          : "";
+
+      const fallbackName =
+        email.split("@")[0];
+
+      const name = (
+        suggestedName.length >= 2
+          ? suggestedName
+          : fallbackName.length >= 2
+            ? fallbackName
+            : "Google User"
+      ).slice(0, 80);
+
+      user = await User.create({
+        name,
+        email,
+        authProvider: "google",
+        googleId,
+      });
     }
 
-    return sendLoginResponse(
-      res,
-      user,
-      "Google account created successfully"
+    const sessionData =
+      await createRefreshSession(
+        user,
+        res
+      );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Google login successful",
+      data: buildAuthResponse(
+        user,
+        sessionData
+      ),
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Account creation conflict. Please try signing in again.",
+      });
+    }
+
+    next(error);
+  }
+};
+
+// ============================================
+// Refresh access token
+// ============================================
+
+const refreshAccessToken = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const refreshToken =
+      getRefreshToken(req);
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Refresh session required",
+      });
+    }
+
+    const session =
+      await rotateRefreshSession(
+        refreshToken,
+        res
+      );
+
+    if (!session) {
+      clearRefreshCookie(res);
+
+      return res.status(401).json({
+        success: false,
+        message:
+          "Invalid or expired refresh session",
+      });
+    }
+
+    const user = await User.findById(
+      session.user
     );
+
+    if (!user) {
+      await RefreshSession.updateOne(
+        { _id: session._id },
+        {
+          $set: {
+            revokedAt: new Date(),
+          },
+        }
+      );
+
+      clearRefreshCookie(res);
+
+      return res.status(401).json({
+        success: false,
+        message:
+          "User no longer exists",
+      });
+    }
+
+    const accessToken =
+      generateAccessToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Access token refreshed",
+      data: buildAuthResponse(
+        user,
+        {
+          token: accessToken,
+          tokenType: "Bearer",
+          expiresIn:
+            ACCESS_TOKEN_EXPIRY_SECONDS,
+        }
+      ),
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// GET /api/auth/me
+// ============================================
+// Logout and revoke refresh session
+// ============================================
+
+const logout = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const refreshToken =
+      getRefreshToken(req);
+
+    if (refreshToken) {
+      await revokeRefreshSession(
+        refreshToken
+      );
+    }
+
+    clearRefreshCookie(res);
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Logged out successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================
+// Current authenticated user
+// ============================================
+
 const getCurrentUser = async (
   req,
   res,
@@ -396,5 +514,7 @@ module.exports = {
   register,
   login,
   googleLogin,
+  refreshAccessToken,
+  logout,
   getCurrentUser,
 };
