@@ -26,6 +26,23 @@ const errorHandler = require(
 const app = express();
 
 // ============================================
+// Reverse Proxy Configuration
+// ============================================
+
+// Render runs the Express application
+// behind a reverse proxy.
+//
+// Trust one proxy hop so Express and
+// express-rate-limit can use forwarded
+// client IP information.
+//
+// Do not enable unrestricted trust proxy.
+
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
+// ============================================
 // CORS Configuration
 // ============================================
 
@@ -40,10 +57,10 @@ const allowedOrigins = (
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Requests without an Origin header can
-      // come from scripts or API testing tools.
-      // Cookie-based endpoints will get their
-      // own stricter CSRF origin validation.
+      // Non-browser requests may omit Origin.
+      // Authentication mutations have their
+      // own origin validation middleware.
+
       if (
         !origin ||
         allowedOrigins.includes(origin)
@@ -52,13 +69,10 @@ app.use(
       }
 
       return callback(
-        new Error(
-          "Not allowed by CORS"
-        )
+        new Error("Not allowed by CORS")
       );
     },
 
-    // Required for refresh-token cookies.
     credentials: true,
 
     methods: [
@@ -82,7 +96,6 @@ app.use(
   })
 );
 
-// Parse cookies from incoming requests.
 app.use(cookieParser());
 
 // ============================================
@@ -101,7 +114,7 @@ app.use(
   authRoutes
 );
 
-// Protected, user-owned task routes
+// Protected task routes
 app.use(
   "/api/tasks",
   taskRoutes
