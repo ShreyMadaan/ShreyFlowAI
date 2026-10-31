@@ -8,10 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import CreateTaskModal from "./features/tasks/CreateTaskModal";
 import AuthPage from "./features/auth/AuthPage";
 
-import {
-  AuthProvider,
-  useAuth,
-} from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthProvider";
+import { useAuth } from "./context/AuthContext";
 
 import useRemoteTasks from "./hooks/useRemoteTasks";
 

@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   AlertCircle,
@@ -110,15 +110,25 @@ function getSubtaskError(title, subtasks) {
   return "";
 }
 
-function CreateTaskModal({
-  isOpen,
+// ==========================================
+// Modal content
+//
+// State is initialized when this component
+// mounts. No reset effect is required.
+// ==========================================
+
+function CreateTaskModalContent({
   task,
-  isSaving = false,
+  isSaving,
   onClose,
   onSave,
 }) {
+  const [initialForm] = useState(() =>
+    createFormFromTask(task)
+  );
+
   const [form, setForm] = useState(
-    createEmptyForm
+    () => initialForm
   );
 
   const [newSubtask, setNewSubtask] =
@@ -136,34 +146,21 @@ function CreateTaskModal({
   const dueDateInputRef = useRef(null);
   const subtaskInputRef = useRef(null);
 
-  const initialFormRef = useRef(
-    createEmptyForm()
-  );
-
   const isEditing = Boolean(task);
 
-  // Reset form when opening or switching tasks.
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const initialForm = createFormFromTask(task);
-
-    initialFormRef.current = initialForm;
-
-    setForm(initialForm);
-    setNewSubtask("");
-    setErrors({});
-    setShowDiscardConfirm(false);
-  }, [isOpen, task]);
+  // ==========================================
+  // Unsaved changes detection
+  // ==========================================
 
   const isDirty =
     JSON.stringify(form) !==
-    JSON.stringify(initialFormRef.current) ||
+      JSON.stringify(initialForm) ||
     newSubtask.trim().length > 0;
 
-  // Prevent accidental loss of unsaved changes.
   const requestClose = () => {
-    if (isSaving || showDiscardConfirm) return;
+    if (isSaving || showDiscardConfirm) {
+      return;
+    }
 
     if (isDirty) {
       setShowDiscardConfirm(true);
@@ -173,16 +170,21 @@ function CreateTaskModal({
     onClose();
   };
 
-  // Shared keyboard focus management.
+  // ==========================================
+  // Keyboard and focus management
+  // ==========================================
+
   useModalFocus({
-    isOpen,
+    isOpen: true,
     isTopmost: !showDiscardConfirm,
     dialogRef,
     initialFocusRef: titleInputRef,
     onClose: requestClose,
   });
 
-  if (!isOpen) return null;
+  // ==========================================
+  // Form field updates
+  // ==========================================
 
   const updateField = (field, value) => {
     setForm((previous) => ({
@@ -195,6 +197,10 @@ function CreateTaskModal({
       [field]: "",
     }));
   };
+
+  // ==========================================
+  // Subtask management
+  // ==========================================
 
   const addSubtask = () => {
     const error = getSubtaskError(
@@ -250,13 +256,18 @@ function CreateTaskModal({
     }));
   };
 
+  // ==========================================
+  // Form submission and validation
+  // ==========================================
+
   const handleSubmit = (event) => {
     event.preventDefault();
+
     if (isSaving) return;
+
     const validationErrors = {};
     const title = form.title.trim();
 
-    // Validate title.
     if (!title) {
       validationErrors.title =
         "Task title is required";
@@ -267,7 +278,6 @@ function CreateTaskModal({
         `Title must be ${MAX_TITLE_LENGTH} characters or fewer`;
     }
 
-    // Validate optional due date.
     if (
       form.dueDate &&
       !isValidDate(form.dueDate)
@@ -276,8 +286,7 @@ function CreateTaskModal({
         "Enter a valid due date";
     }
 
-    // Include a pending subtask when saving.
-    let finalSubtasks = [...form.subtasks];
+    const finalSubtasks = [...form.subtasks];
 
     if (newSubtask.trim()) {
       const subtaskError = getSubtaskError(
@@ -297,7 +306,6 @@ function CreateTaskModal({
       }
     }
 
-    // Display errors and focus the first invalid field.
     if (
       Object.keys(validationErrors).length > 0
     ) {
@@ -306,9 +314,13 @@ function CreateTaskModal({
       requestAnimationFrame(() => {
         if (validationErrors.title) {
           titleInputRef.current?.focus();
-        } else if (validationErrors.dueDate) {
+        } else if (
+          validationErrors.dueDate
+        ) {
           dueDateInputRef.current?.focus();
-        } else if (validationErrors.subtask) {
+        } else if (
+          validationErrors.subtask
+        ) {
           subtaskInputRef.current?.focus();
         }
       });
@@ -316,7 +328,6 @@ function CreateTaskModal({
       return;
     }
 
-    // Preserve the existing task data structure.
     onSave({
       title,
       description: form.description.trim(),
@@ -332,6 +343,10 @@ function CreateTaskModal({
     setShowDiscardConfirm(false);
     onClose();
   };
+
+  // ==========================================
+  // Shared styles
+  // ==========================================
 
   const inputClass =
     "w-full rounded-xl border border-app-border bg-surface-secondary px-3 py-2.5 text-sm text-primary outline-none transition-colors focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15";
@@ -417,11 +432,12 @@ function CreateTaskModal({
                   </label>
 
                   <span
-                    className={`text-xs ${form.title.length >
-                        MAX_TITLE_LENGTH
+                    className={`text-xs ${
+                      form.title.length >
+                      MAX_TITLE_LENGTH
                         ? "text-red-500"
                         : "text-muted"
-                      }`}
+                    }`}
                   >
                     {form.title.length}/
                     {MAX_TITLE_LENGTH}
@@ -449,10 +465,11 @@ function CreateTaskModal({
                       ? "task-title-error"
                       : undefined
                   }
-                  className={`${inputClass} ${errors.title
+                  className={`${inputClass} ${
+                    errors.title
                       ? errorInputClass
                       : ""
-                    }`}
+                  }`}
                 />
 
                 {errors.title && (
@@ -588,10 +605,11 @@ function CreateTaskModal({
                         ? "task-due-date-error"
                         : undefined
                     }
-                    className={`${inputClass} ${errors.dueDate
+                    className={`${inputClass} ${
+                      errors.dueDate
                         ? errorInputClass
                         : ""
-                      }`}
+                    }`}
                   />
                 </div>
 
@@ -711,10 +729,11 @@ function CreateTaskModal({
                         ? "task-subtask-error"
                         : "task-subtask-help"
                     }
-                    className={`${inputClass} min-w-0 flex-1 ${errors.subtask
+                    className={`${inputClass} min-w-0 flex-1 ${
+                      errors.subtask
                         ? errorInputClass
                         : ""
-                      }`}
+                    }`}
                   />
 
                   <button
@@ -757,17 +776,19 @@ function CreateTaskModal({
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span
-                              className={`h-2 w-2 shrink-0 rounded-full ${subtask.completed
+                              className={`h-2 w-2 shrink-0 rounded-full ${
+                                subtask.completed
                                   ? "bg-emerald-500"
                                   : "bg-violet-500"
-                                }`}
+                              }`}
                             />
 
                             <span
-                              className={`min-w-0 break-words text-sm ${subtask.completed
+                              className={`min-w-0 break-words text-sm ${
+                                subtask.completed
                                   ? "text-muted line-through"
                                   : ""
-                                }`}
+                              }`}
                             >
                               {subtask.title}
                             </span>
@@ -836,4 +857,35 @@ function CreateTaskModal({
   );
 }
 
-export default CreateTaskModal;
+// ==========================================
+// Public component
+//
+// Mounting/unmounting resets the form.
+// Switching tasks changes the component key.
+// ==========================================
+
+export default function CreateTaskModal({
+  isOpen,
+  task,
+  isSaving = false,
+  onClose,
+  onSave,
+}) {
+  if (!isOpen) {
+    return null;
+  }
+
+  const modalKey = task
+    ? `edit-${task.id}`
+    : "create-new";
+
+  return (
+    <CreateTaskModalContent
+      key={modalKey}
+      task={task}
+      isSaving={isSaving}
+      onClose={onClose}
+      onSave={onSave}
+    />
+  );
+}

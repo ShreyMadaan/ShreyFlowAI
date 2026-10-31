@@ -17,16 +17,21 @@ export default function useRemoteTasks(
   const [error, setError] = useState(null);
 
   const requestVersion = useRef(0);
-
-  // Always reference the latest access token,
-  // even if an async operation started earlier.
   const tokenRef = useRef(token);
-  tokenRef.current = token;
-
   const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
-
   const mountedRef = useRef(false);
+
+  // ==========================================
+  // Keep refs synchronized after rendering
+  // ==========================================
+
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -48,42 +53,32 @@ export default function useRemoteTasks(
       try {
         return await operation(originalToken);
       } catch (originalError) {
-        // Only authentication failures trigger
-        // a token refresh. Other errors propagate.
         if (originalError.status !== 401) {
           throw originalError;
         }
 
         let nextToken = tokenRef.current;
 
-        // Another request may have refreshed the
-        // access token while this one was running.
         if (
           !nextToken ||
           nextToken === originalToken
         ) {
-          // AuthContext shares concurrent refresh
-          // requests and handles invalid sessions.
           const renewedSession =
             await refreshSession();
 
           nextToken = renewedSession?.token;
         }
 
-        // Do not retry if the refresh session
-        // is invalid, expired, or was logged out.
-        if (!nextToken) {
-          throw originalError;
-        }
-
-        if (!mountedRef.current) {
+        if (
+          !nextToken ||
+          !mountedRef.current
+        ) {
           throw originalError;
         }
 
         tokenRef.current = nextToken;
 
-        // Retry exactly once with the renewed JWT.
-        // If this request fails, its error propagates.
+        // Retry exactly once.
         return operation(nextToken);
       }
     },
@@ -141,12 +136,23 @@ export default function useRemoteTasks(
     }
   }, [requestWithRefresh]);
 
-  // Load tasks on mount, not every time
-  // the access JWT rotates.
+  // ==========================================
+  // Initial task loading
+  // ==========================================
+
   useEffect(() => {
-    refetch();
+    let cancelled = false;
+
+    // Defer the request so state updates
+    // are not synchronous inside the effect.
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        void refetch();
+      }
+    });
 
     return () => {
+      cancelled = true;
       requestVersion.current += 1;
     };
   }, [refetch]);
@@ -227,7 +233,7 @@ export default function useRemoteTasks(
   };
 
   // ==========================================
-  // Reorder tasks (drag-and-drop)
+  // Drag-and-drop task reordering
   // ==========================================
 
   const reorderTasks = async (nextTasks) => {
@@ -260,7 +266,7 @@ export default function useRemoteTasks(
       })
     );
 
-    // Optimistically update the board.
+    // Optimistic update.
     tasksRef.current = normalizedTasks;
     setTasks(normalizedTasks);
 
@@ -275,14 +281,10 @@ export default function useRemoteTasks(
         );
       }
     } catch (err) {
-      // Undo optimistic changes if both
-      // the original request and retry fail.
       if (mountedRef.current) {
         tasksRef.current = previousTasks;
         setTasks(previousTasks);
 
-        // Reconcile with the server if this
-        // was not an authentication failure.
         if (err.status !== 401) {
           await refetch();
         }

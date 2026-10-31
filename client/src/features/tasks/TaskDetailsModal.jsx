@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   CalendarDays,
@@ -15,7 +15,11 @@ import { BOARD_COLUMNS } from "../../data/mockData";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import useModalFocus from "../../hooks/useModalFocus";
 
-function TaskDetailsModal({
+// ==========================================
+// Task details content
+// ==========================================
+
+function TaskDetailsContent({
   task,
   onClose,
   onStatusChange,
@@ -29,19 +33,21 @@ function TaskDetailsModal({
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
 
+  // ==========================================
+  // Focus and keyboard management
+  // ==========================================
+
   useModalFocus({
-    isOpen: Boolean(task),
+    isOpen: true,
     isTopmost: !confirmDelete,
     dialogRef,
     initialFocusRef: closeButtonRef,
     onClose,
   });
 
-  useEffect(() => {
-    setConfirmDelete(false);
-  }, [task?.id]);
-
-  if (!task) return null;
+  // ==========================================
+  // Delete task
+  // ==========================================
 
   const handleDelete = () => {
     onDeleteTask(task.id);
@@ -228,7 +234,9 @@ function TaskDetailsModal({
           <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-app-border pt-5">
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() =>
+                setConfirmDelete(true)
+              }
               className="flex items-center gap-2 rounded-xl border border-red-500/30 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-red-500"
             >
               <Trash2 size={16} />
@@ -258,11 +266,43 @@ function TaskDetailsModal({
         confirmLabel="Delete Task"
         cancelLabel="Keep Task"
         variant="danger"
-        onClose={() => setConfirmDelete(false)}
+        onClose={() =>
+          setConfirmDelete(false)
+        }
         onConfirm={handleDelete}
       />
     </>
   );
 }
 
-export default TaskDetailsModal;
+// ==========================================
+// Public component
+//
+// A new task ID remounts the details content,
+// resetting confirmation state automatically.
+// ==========================================
+
+export default function TaskDetailsModal({
+  task,
+  onClose,
+  onStatusChange,
+  onEditTask,
+  onDeleteTask,
+  onToggleSubtask,
+}) {
+  if (!task) {
+    return null;
+  }
+
+  return (
+    <TaskDetailsContent
+      key={task.id}
+      task={task}
+      onClose={onClose}
+      onStatusChange={onStatusChange}
+      onEditTask={onEditTask}
+      onDeleteTask={onDeleteTask}
+      onToggleSubtask={onToggleSubtask}
+    />
+  );
+}

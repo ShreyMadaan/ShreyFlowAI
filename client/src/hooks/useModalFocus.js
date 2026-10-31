@@ -1,6 +1,10 @@
 
 import { useEffect, useRef } from "react";
 
+// ==========================================
+// Focusable elements inside a modal
+// ==========================================
+
 const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -9,6 +13,10 @@ const FOCUSABLE_SELECTOR = [
   'textarea:not([disabled])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(", ");
+
+// ==========================================
+// Global scroll-lock management
+// ==========================================
 
 let scrollLockCount = 0;
 let originalBodyOverflow = "";
@@ -36,6 +44,10 @@ function unlockBodyScroll() {
   }
 }
 
+// ==========================================
+// Modal focus management hook
+// ==========================================
+
 function useModalFocus({
   isOpen,
   isTopmost = true,
@@ -46,8 +58,21 @@ function useModalFocus({
   const onCloseRef = useRef(onClose);
   const isTopmostRef = useRef(isTopmost);
 
-  onCloseRef.current = onClose;
-  isTopmostRef.current = isTopmost;
+  // ==========================================
+  // Synchronize callback and modal state
+  //
+  // Avoid accessing or modifying refs
+  // directly during React rendering.
+  // ==========================================
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    isTopmostRef.current = isTopmost;
+  }, [onClose, isTopmost]);
+
+  // ==========================================
+  // Focus trapping and keyboard management
+  // ==========================================
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,6 +89,10 @@ function useModalFocus({
       return;
     }
 
+    // ========================================
+    // Find available focusable elements
+    // ========================================
+
     const getFocusableElements = () =>
       Array.from(
         dialog.querySelectorAll(
@@ -76,6 +105,10 @@ function useModalFocus({
             "true"
       );
 
+    // ========================================
+    // Set initial focus
+    // ========================================
+
     const initialElement =
       initialFocusRef?.current ||
       getFocusableElements()[0] ||
@@ -83,9 +116,20 @@ function useModalFocus({
 
     initialElement.focus();
 
+    // ========================================
+    // Handle Escape and Tab navigation
+    // ========================================
+
     const handleKeyDown = (event) => {
-      // Only the topmost modal handles keyboard events.
-      if (!isTopmostRef.current) return;
+      // Only the topmost modal handles
+      // keyboard events.
+      if (!isTopmostRef.current) {
+        return;
+      }
+
+      // ======================================
+      // Escape: request modal closure
+      // ======================================
 
       if (event.key === "Escape") {
         event.preventDefault();
@@ -95,10 +139,16 @@ function useModalFocus({
         return;
       }
 
-      if (event.key !== "Tab") return;
+      if (event.key !== "Tab") {
+        return;
+      }
 
       const focusableElements =
         getFocusableElements();
+
+      // ======================================
+      // No focusable elements
+      // ======================================
 
       if (focusableElements.length === 0) {
         event.preventDefault();
@@ -120,7 +170,10 @@ function useModalFocus({
       const focusIsOutside =
         !dialog.contains(activeElement);
 
-      // Shift + Tab: reverse navigation.
+      // ======================================
+      // Shift + Tab: reverse navigation
+      // ======================================
+
       if (event.shiftKey) {
         if (
           activeElement === firstElement ||
@@ -130,7 +183,10 @@ function useModalFocus({
           lastElement.focus();
         }
       } else {
-        // Tab: forward navigation.
+        // ====================================
+        // Tab: forward navigation
+        // ====================================
+
         if (
           activeElement === lastElement ||
           focusIsOutside
@@ -141,11 +197,19 @@ function useModalFocus({
       }
     };
 
+    // ========================================
+    // Register keyboard listener
+    // ========================================
+
     document.addEventListener(
       "keydown",
       handleKeyDown,
       true
     );
+
+    // ========================================
+    // Cleanup on modal closure/unmount
+    // ========================================
 
     return () => {
       document.removeEventListener(
@@ -156,6 +220,8 @@ function useModalFocus({
 
       unlockBodyScroll();
 
+      // Restore focus to the element that
+      // was active before opening the modal.
       if (
         previouslyFocusedElement instanceof
           HTMLElement &&
