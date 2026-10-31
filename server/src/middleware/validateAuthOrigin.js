@@ -7,15 +7,32 @@ const allowedOrigins = (
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Safe HTTP methods do not modify
+// authentication or session state.
+const SAFE_METHODS = new Set([
+  "GET",
+  "HEAD",
+  "OPTIONS",
+]);
+
 const validateAuthOrigin = (
   req,
   res,
   next
 ) => {
+  // Allow safe, read-only requests.
+  // JWT authentication still protects
+  // endpoints such as GET /auth/me.
+  if (SAFE_METHODS.has(req.method)) {
+    return next();
+  }
+
   const origin = req.get("Origin");
   const fetchSite =
     req.get("Sec-Fetch-Site");
 
+  // Validate browser requests that
+  // provide an Origin header.
   if (origin) {
     if (allowedOrigins.includes(origin)) {
       return next();
@@ -28,9 +45,8 @@ const validateAuthOrigin = (
     });
   }
 
-  // Browser requests that include Fetch
-  // Metadata must provide an allowed Origin
-  // for these authentication mutations.
+  // Browser mutation requests must
+  // include an approved Origin.
   if (fetchSite) {
     return res.status(403).json({
       success: false,
@@ -39,8 +55,8 @@ const validateAuthOrigin = (
     });
   }
 
-  // Allows non-browser API clients such
-  // as PowerShell and Postman.
+  // Allow non-browser API clients,
+  // such as PowerShell and Postman.
   return next();
 };
 
